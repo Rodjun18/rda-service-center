@@ -3239,99 +3239,54 @@ body{font-family:'Segoe UI',Arial,sans-serif;font-size:11px;color:#111;backgroun
   <img src='' onerror='setTimeout(()=>window.print(),400)' style='display:none'>
   
 <script>
-// ═══════════════════════════════════════════
-// SERVER SYNC — Auto-save to Render disk
-// ═══════════════════════════════════════════
-let _serverSaveTimer = null;
-
-async function serverSaveData(silent) {
-  try {
-    const payload = getBackupPayload();
-    const res = await fetch('/api/save', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(payload)
-    });
-    const result = await res.json();
-    if (result.ok) {
-      markSaved();
-      const btn = document.getElementById('backup-btn');
-      if (btn && !silent) {
-        btn.textContent = '✅ Saved';
-        btn.style.background = '#065F46';
-        setTimeout(() => { btn.textContent = '💾 Save Backup'; }, 2000);
-      }
-    }
-  } catch(e) {
-    console.error('[Sync] Save error:', e);
-  }
+// SERVER SYNC
+let _st=null;
+async function serverSaveData(s){
+  try{
+    const r=await fetch('/api/save',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(getBackupPayload())});
+    const j=await r.json();
+    if(j.ok){markSaved();if(!s){const b=document.getElementById('backup-btn');if(b){b.textContent='✅ Saved';setTimeout(()=>{b.textContent='💾 Save Backup';},2000);}}}
+  }catch(e){console.error('[Sync]',e);}
 }
-
-async function serverLoadData() {
-  try {
-    const res = await fetch('/api/data');
-    const data = await res.json();
-    if (!data.jobs || data.jobs.length === 0) return false;
-    
-    if (data.jobs)            jobs            = [...data.jobs];
-    if (data.customers)       customers       = [...data.customers];
-    if (data.inventory)       inventory       = [...data.inventory];
-    if (data.partRequests)    partRequests    = [...data.partRequests];
-    if (data.sales)           sales           = [...data.sales];
-    if (data.dealers)         dealers         = [...data.dealers];
-    if (data.quotations)      quotations      = [...data.quotations];
-    if (data.forumPosts)      forumPosts      = [...data.forumPosts];
-    if (data.expenses)        expenses        = [...data.expenses];
-    if (data.dailyReports)    dailyReports    = [...data.dailyReports];
-    if (data.employees)       employees       = [...data.employees];
-    if (data.dtrRecords)      dtrRecords      = [...data.dtrRecords];
-    if (data.payrollRuns)     payrollRuns     = [...data.payrollRuns];
-    if (data.leaveRequests)   leaveRequests   = [...data.leaveRequests];
-    if (data.dtrSubmissions)  dtrSubmissions  = [...data.dtrSubmissions];
-    if (data.purchaseOrders)  purchaseOrders  = [...data.purchaseOrders];
-    if (data.toolInventory)   toolInventory   = [...data.toolInventory];
-    if (data.toolRequests)    toolRequests    = [...data.toolRequests];
-    if (data.defectiveReturns) defectiveReturns = [...data.defectiveReturns];
-    if (data.notifications)   notifications   = [...data.notifications];
-    if (data.orCounter)       orCounter       = data.orCounter;
-    if (data.poCounter)       poCounter       = data.poCounter;
-    if (data.dashConfig)      dashConfig      = data.dashConfig;
-    if (data.masterList)      masterList      = data.masterList;
-    if (data.accounts)        accounts        = data.accounts;
-
-    console.log('[Sync] Loaded', jobs.length, 'jobs from server disk');
-    return true;
-  } catch(e) {
-    console.error('[Sync] Load error:', e);
-    return false;
-  }
+async function serverLoadData(){
+  try{
+    const r=await fetch('/api/data');const d=await r.json();
+    if(!d.jobs||!d.jobs.length)return false;
+    if(d.jobs)jobs=[...d.jobs];
+    if(d.customers)customers=[...d.customers];
+    if(d.inventory)inventory=[...d.inventory];
+    if(d.partRequests)partRequests=[...d.partRequests];
+    if(d.sales)sales=[...d.sales];
+    if(d.dealers)dealers=[...d.dealers];
+    if(d.quotations)quotations=[...d.quotations];
+    if(d.forumPosts)forumPosts=[...d.forumPosts];
+    if(d.expenses)expenses=[...d.expenses];
+    if(d.dailyReports)dailyReports=[...d.dailyReports];
+    if(d.employees)employees=[...d.employees];
+    if(d.dtrRecords)dtrRecords=[...d.dtrRecords];
+    if(d.payrollRuns)payrollRuns=[...d.payrollRuns];
+    if(d.leaveRequests)leaveRequests=[...d.leaveRequests];
+    if(d.dtrSubmissions)dtrSubmissions=[...d.dtrSubmissions];
+    if(d.purchaseOrders)purchaseOrders=[...d.purchaseOrders];
+    if(d.toolInventory)toolInventory=[...d.toolInventory];
+    if(d.toolRequests)toolRequests=[...d.toolRequests];
+    if(d.defectiveReturns)defectiveReturns=[...d.defectiveReturns];
+    if(d.notifications)notifications=[...d.notifications];
+    if(d.orCounter)orCounter=d.orCounter;
+    if(d.poCounter)poCounter=d.poCounter;
+    if(d.dashConfig)dashConfig=d.dashConfig;
+    if(d.masterList)masterList=d.masterList;
+    if(d.accounts)accounts=d.accounts;
+    console.log('[Sync] Loaded',jobs.length,'jobs');return true;
+  }catch(e){console.error('[Sync]',e);return false;}
 }
-
-// Override markUnsaved to auto-save 3 seconds after any change
-const _origMarkUnsaved = markUnsaved;
-markUnsaved = function() {
-  _origMarkUnsaved();
-  if (_serverSaveTimer) clearTimeout(_serverSaveTimer);
-  _serverSaveTimer = setTimeout(() => serverSaveData(true), 3000);
-};
-
-// Override saveBackup to also save to server
-const _origSaveBackup = saveBackup;
-saveBackup = function() {
-  _origSaveBackup();
-  serverSaveData(false);
-};
-
-// On page load — load data from server disk, then show login
-window.addEventListener('DOMContentLoaded', async () => {
-  const loaded = await serverLoadData();
-  console.log('[Sync] Data loaded from disk:', loaded);
-});
-
-// Auto-save every 5 minutes as safety net
-setInterval(() => serverSaveData(true), 5 * 60 * 1000);
+const _ou=markUnsaved;
+markUnsaved=function(){_ou();clearTimeout(_st);_st=setTimeout(()=>serverSaveData(true),3000);};
+const _ob=saveBackup;
+saveBackup=function(){_ob();serverSaveData(false);};
+document.addEventListener('DOMContentLoaded',()=>{serverLoadData();});
+setInterval(()=>serverSaveData(true),300000);
 </script>
-
 </body></html>`);
   w.document.close();
 }
@@ -3560,99 +3515,54 @@ body{font-family:Arial,sans-serif;font-size:11px;background:#fff;color:#000}
 <img src="" onerror="setTimeout(()=>window.print(),400)" style="display:none">
 
 <script>
-// ═══════════════════════════════════════════
-// SERVER SYNC — Auto-save to Render disk
-// ═══════════════════════════════════════════
-let _serverSaveTimer = null;
-
-async function serverSaveData(silent) {
-  try {
-    const payload = getBackupPayload();
-    const res = await fetch('/api/save', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(payload)
-    });
-    const result = await res.json();
-    if (result.ok) {
-      markSaved();
-      const btn = document.getElementById('backup-btn');
-      if (btn && !silent) {
-        btn.textContent = '✅ Saved';
-        btn.style.background = '#065F46';
-        setTimeout(() => { btn.textContent = '💾 Save Backup'; }, 2000);
-      }
-    }
-  } catch(e) {
-    console.error('[Sync] Save error:', e);
-  }
+// SERVER SYNC
+let _st=null;
+async function serverSaveData(s){
+  try{
+    const r=await fetch('/api/save',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(getBackupPayload())});
+    const j=await r.json();
+    if(j.ok){markSaved();if(!s){const b=document.getElementById('backup-btn');if(b){b.textContent='✅ Saved';setTimeout(()=>{b.textContent='💾 Save Backup';},2000);}}}
+  }catch(e){console.error('[Sync]',e);}
 }
-
-async function serverLoadData() {
-  try {
-    const res = await fetch('/api/data');
-    const data = await res.json();
-    if (!data.jobs || data.jobs.length === 0) return false;
-    
-    if (data.jobs)            jobs            = [...data.jobs];
-    if (data.customers)       customers       = [...data.customers];
-    if (data.inventory)       inventory       = [...data.inventory];
-    if (data.partRequests)    partRequests    = [...data.partRequests];
-    if (data.sales)           sales           = [...data.sales];
-    if (data.dealers)         dealers         = [...data.dealers];
-    if (data.quotations)      quotations      = [...data.quotations];
-    if (data.forumPosts)      forumPosts      = [...data.forumPosts];
-    if (data.expenses)        expenses        = [...data.expenses];
-    if (data.dailyReports)    dailyReports    = [...data.dailyReports];
-    if (data.employees)       employees       = [...data.employees];
-    if (data.dtrRecords)      dtrRecords      = [...data.dtrRecords];
-    if (data.payrollRuns)     payrollRuns     = [...data.payrollRuns];
-    if (data.leaveRequests)   leaveRequests   = [...data.leaveRequests];
-    if (data.dtrSubmissions)  dtrSubmissions  = [...data.dtrSubmissions];
-    if (data.purchaseOrders)  purchaseOrders  = [...data.purchaseOrders];
-    if (data.toolInventory)   toolInventory   = [...data.toolInventory];
-    if (data.toolRequests)    toolRequests    = [...data.toolRequests];
-    if (data.defectiveReturns) defectiveReturns = [...data.defectiveReturns];
-    if (data.notifications)   notifications   = [...data.notifications];
-    if (data.orCounter)       orCounter       = data.orCounter;
-    if (data.poCounter)       poCounter       = data.poCounter;
-    if (data.dashConfig)      dashConfig      = data.dashConfig;
-    if (data.masterList)      masterList      = data.masterList;
-    if (data.accounts)        accounts        = data.accounts;
-
-    console.log('[Sync] Loaded', jobs.length, 'jobs from server disk');
-    return true;
-  } catch(e) {
-    console.error('[Sync] Load error:', e);
-    return false;
-  }
+async function serverLoadData(){
+  try{
+    const r=await fetch('/api/data');const d=await r.json();
+    if(!d.jobs||!d.jobs.length)return false;
+    if(d.jobs)jobs=[...d.jobs];
+    if(d.customers)customers=[...d.customers];
+    if(d.inventory)inventory=[...d.inventory];
+    if(d.partRequests)partRequests=[...d.partRequests];
+    if(d.sales)sales=[...d.sales];
+    if(d.dealers)dealers=[...d.dealers];
+    if(d.quotations)quotations=[...d.quotations];
+    if(d.forumPosts)forumPosts=[...d.forumPosts];
+    if(d.expenses)expenses=[...d.expenses];
+    if(d.dailyReports)dailyReports=[...d.dailyReports];
+    if(d.employees)employees=[...d.employees];
+    if(d.dtrRecords)dtrRecords=[...d.dtrRecords];
+    if(d.payrollRuns)payrollRuns=[...d.payrollRuns];
+    if(d.leaveRequests)leaveRequests=[...d.leaveRequests];
+    if(d.dtrSubmissions)dtrSubmissions=[...d.dtrSubmissions];
+    if(d.purchaseOrders)purchaseOrders=[...d.purchaseOrders];
+    if(d.toolInventory)toolInventory=[...d.toolInventory];
+    if(d.toolRequests)toolRequests=[...d.toolRequests];
+    if(d.defectiveReturns)defectiveReturns=[...d.defectiveReturns];
+    if(d.notifications)notifications=[...d.notifications];
+    if(d.orCounter)orCounter=d.orCounter;
+    if(d.poCounter)poCounter=d.poCounter;
+    if(d.dashConfig)dashConfig=d.dashConfig;
+    if(d.masterList)masterList=d.masterList;
+    if(d.accounts)accounts=d.accounts;
+    console.log('[Sync] Loaded',jobs.length,'jobs');return true;
+  }catch(e){console.error('[Sync]',e);return false;}
 }
-
-// Override markUnsaved to auto-save 3 seconds after any change
-const _origMarkUnsaved = markUnsaved;
-markUnsaved = function() {
-  _origMarkUnsaved();
-  if (_serverSaveTimer) clearTimeout(_serverSaveTimer);
-  _serverSaveTimer = setTimeout(() => serverSaveData(true), 3000);
-};
-
-// Override saveBackup to also save to server
-const _origSaveBackup = saveBackup;
-saveBackup = function() {
-  _origSaveBackup();
-  serverSaveData(false);
-};
-
-// On page load — load data from server disk, then show login
-window.addEventListener('DOMContentLoaded', async () => {
-  const loaded = await serverLoadData();
-  console.log('[Sync] Data loaded from disk:', loaded);
-});
-
-// Auto-save every 5 minutes as safety net
-setInterval(() => serverSaveData(true), 5 * 60 * 1000);
+const _ou=markUnsaved;
+markUnsaved=function(){_ou();clearTimeout(_st);_st=setTimeout(()=>serverSaveData(true),3000);};
+const _ob=saveBackup;
+saveBackup=function(){_ob();serverSaveData(false);};
+document.addEventListener('DOMContentLoaded',()=>{serverLoadData();});
+setInterval(()=>serverSaveData(true),300000);
 </script>
-
 </body></html>`);
   w.document.close();
 }
@@ -4572,99 +4482,54 @@ function printSimpleReceipt(sale){
   <img src='' onerror='setTimeout(()=>window.print(),300)' style='display:none'>
   
 <script>
-// ═══════════════════════════════════════════
-// SERVER SYNC — Auto-save to Render disk
-// ═══════════════════════════════════════════
-let _serverSaveTimer = null;
-
-async function serverSaveData(silent) {
-  try {
-    const payload = getBackupPayload();
-    const res = await fetch('/api/save', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(payload)
-    });
-    const result = await res.json();
-    if (result.ok) {
-      markSaved();
-      const btn = document.getElementById('backup-btn');
-      if (btn && !silent) {
-        btn.textContent = '✅ Saved';
-        btn.style.background = '#065F46';
-        setTimeout(() => { btn.textContent = '💾 Save Backup'; }, 2000);
-      }
-    }
-  } catch(e) {
-    console.error('[Sync] Save error:', e);
-  }
+// SERVER SYNC
+let _st=null;
+async function serverSaveData(s){
+  try{
+    const r=await fetch('/api/save',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(getBackupPayload())});
+    const j=await r.json();
+    if(j.ok){markSaved();if(!s){const b=document.getElementById('backup-btn');if(b){b.textContent='✅ Saved';setTimeout(()=>{b.textContent='💾 Save Backup';},2000);}}}
+  }catch(e){console.error('[Sync]',e);}
 }
-
-async function serverLoadData() {
-  try {
-    const res = await fetch('/api/data');
-    const data = await res.json();
-    if (!data.jobs || data.jobs.length === 0) return false;
-    
-    if (data.jobs)            jobs            = [...data.jobs];
-    if (data.customers)       customers       = [...data.customers];
-    if (data.inventory)       inventory       = [...data.inventory];
-    if (data.partRequests)    partRequests    = [...data.partRequests];
-    if (data.sales)           sales           = [...data.sales];
-    if (data.dealers)         dealers         = [...data.dealers];
-    if (data.quotations)      quotations      = [...data.quotations];
-    if (data.forumPosts)      forumPosts      = [...data.forumPosts];
-    if (data.expenses)        expenses        = [...data.expenses];
-    if (data.dailyReports)    dailyReports    = [...data.dailyReports];
-    if (data.employees)       employees       = [...data.employees];
-    if (data.dtrRecords)      dtrRecords      = [...data.dtrRecords];
-    if (data.payrollRuns)     payrollRuns     = [...data.payrollRuns];
-    if (data.leaveRequests)   leaveRequests   = [...data.leaveRequests];
-    if (data.dtrSubmissions)  dtrSubmissions  = [...data.dtrSubmissions];
-    if (data.purchaseOrders)  purchaseOrders  = [...data.purchaseOrders];
-    if (data.toolInventory)   toolInventory   = [...data.toolInventory];
-    if (data.toolRequests)    toolRequests    = [...data.toolRequests];
-    if (data.defectiveReturns) defectiveReturns = [...data.defectiveReturns];
-    if (data.notifications)   notifications   = [...data.notifications];
-    if (data.orCounter)       orCounter       = data.orCounter;
-    if (data.poCounter)       poCounter       = data.poCounter;
-    if (data.dashConfig)      dashConfig      = data.dashConfig;
-    if (data.masterList)      masterList      = data.masterList;
-    if (data.accounts)        accounts        = data.accounts;
-
-    console.log('[Sync] Loaded', jobs.length, 'jobs from server disk');
-    return true;
-  } catch(e) {
-    console.error('[Sync] Load error:', e);
-    return false;
-  }
+async function serverLoadData(){
+  try{
+    const r=await fetch('/api/data');const d=await r.json();
+    if(!d.jobs||!d.jobs.length)return false;
+    if(d.jobs)jobs=[...d.jobs];
+    if(d.customers)customers=[...d.customers];
+    if(d.inventory)inventory=[...d.inventory];
+    if(d.partRequests)partRequests=[...d.partRequests];
+    if(d.sales)sales=[...d.sales];
+    if(d.dealers)dealers=[...d.dealers];
+    if(d.quotations)quotations=[...d.quotations];
+    if(d.forumPosts)forumPosts=[...d.forumPosts];
+    if(d.expenses)expenses=[...d.expenses];
+    if(d.dailyReports)dailyReports=[...d.dailyReports];
+    if(d.employees)employees=[...d.employees];
+    if(d.dtrRecords)dtrRecords=[...d.dtrRecords];
+    if(d.payrollRuns)payrollRuns=[...d.payrollRuns];
+    if(d.leaveRequests)leaveRequests=[...d.leaveRequests];
+    if(d.dtrSubmissions)dtrSubmissions=[...d.dtrSubmissions];
+    if(d.purchaseOrders)purchaseOrders=[...d.purchaseOrders];
+    if(d.toolInventory)toolInventory=[...d.toolInventory];
+    if(d.toolRequests)toolRequests=[...d.toolRequests];
+    if(d.defectiveReturns)defectiveReturns=[...d.defectiveReturns];
+    if(d.notifications)notifications=[...d.notifications];
+    if(d.orCounter)orCounter=d.orCounter;
+    if(d.poCounter)poCounter=d.poCounter;
+    if(d.dashConfig)dashConfig=d.dashConfig;
+    if(d.masterList)masterList=d.masterList;
+    if(d.accounts)accounts=d.accounts;
+    console.log('[Sync] Loaded',jobs.length,'jobs');return true;
+  }catch(e){console.error('[Sync]',e);return false;}
 }
-
-// Override markUnsaved to auto-save 3 seconds after any change
-const _origMarkUnsaved = markUnsaved;
-markUnsaved = function() {
-  _origMarkUnsaved();
-  if (_serverSaveTimer) clearTimeout(_serverSaveTimer);
-  _serverSaveTimer = setTimeout(() => serverSaveData(true), 3000);
-};
-
-// Override saveBackup to also save to server
-const _origSaveBackup = saveBackup;
-saveBackup = function() {
-  _origSaveBackup();
-  serverSaveData(false);
-};
-
-// On page load — load data from server disk, then show login
-window.addEventListener('DOMContentLoaded', async () => {
-  const loaded = await serverLoadData();
-  console.log('[Sync] Data loaded from disk:', loaded);
-});
-
-// Auto-save every 5 minutes as safety net
-setInterval(() => serverSaveData(true), 5 * 60 * 1000);
+const _ou=markUnsaved;
+markUnsaved=function(){_ou();clearTimeout(_st);_st=setTimeout(()=>serverSaveData(true),3000);};
+const _ob=saveBackup;
+saveBackup=function(){_ob();serverSaveData(false);};
+document.addEventListener('DOMContentLoaded',()=>{serverLoadData();});
+setInterval(()=>serverSaveData(true),300000);
 </script>
-
 </body></html>`);w.document.close();
 }
 
@@ -4710,99 +4575,54 @@ function printOfficialReceipt(sale){
   <img src='' onerror='setTimeout(()=>window.print(),300)' style='display:none'>
   
 <script>
-// ═══════════════════════════════════════════
-// SERVER SYNC — Auto-save to Render disk
-// ═══════════════════════════════════════════
-let _serverSaveTimer = null;
-
-async function serverSaveData(silent) {
-  try {
-    const payload = getBackupPayload();
-    const res = await fetch('/api/save', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(payload)
-    });
-    const result = await res.json();
-    if (result.ok) {
-      markSaved();
-      const btn = document.getElementById('backup-btn');
-      if (btn && !silent) {
-        btn.textContent = '✅ Saved';
-        btn.style.background = '#065F46';
-        setTimeout(() => { btn.textContent = '💾 Save Backup'; }, 2000);
-      }
-    }
-  } catch(e) {
-    console.error('[Sync] Save error:', e);
-  }
+// SERVER SYNC
+let _st=null;
+async function serverSaveData(s){
+  try{
+    const r=await fetch('/api/save',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(getBackupPayload())});
+    const j=await r.json();
+    if(j.ok){markSaved();if(!s){const b=document.getElementById('backup-btn');if(b){b.textContent='✅ Saved';setTimeout(()=>{b.textContent='💾 Save Backup';},2000);}}}
+  }catch(e){console.error('[Sync]',e);}
 }
-
-async function serverLoadData() {
-  try {
-    const res = await fetch('/api/data');
-    const data = await res.json();
-    if (!data.jobs || data.jobs.length === 0) return false;
-    
-    if (data.jobs)            jobs            = [...data.jobs];
-    if (data.customers)       customers       = [...data.customers];
-    if (data.inventory)       inventory       = [...data.inventory];
-    if (data.partRequests)    partRequests    = [...data.partRequests];
-    if (data.sales)           sales           = [...data.sales];
-    if (data.dealers)         dealers         = [...data.dealers];
-    if (data.quotations)      quotations      = [...data.quotations];
-    if (data.forumPosts)      forumPosts      = [...data.forumPosts];
-    if (data.expenses)        expenses        = [...data.expenses];
-    if (data.dailyReports)    dailyReports    = [...data.dailyReports];
-    if (data.employees)       employees       = [...data.employees];
-    if (data.dtrRecords)      dtrRecords      = [...data.dtrRecords];
-    if (data.payrollRuns)     payrollRuns     = [...data.payrollRuns];
-    if (data.leaveRequests)   leaveRequests   = [...data.leaveRequests];
-    if (data.dtrSubmissions)  dtrSubmissions  = [...data.dtrSubmissions];
-    if (data.purchaseOrders)  purchaseOrders  = [...data.purchaseOrders];
-    if (data.toolInventory)   toolInventory   = [...data.toolInventory];
-    if (data.toolRequests)    toolRequests    = [...data.toolRequests];
-    if (data.defectiveReturns) defectiveReturns = [...data.defectiveReturns];
-    if (data.notifications)   notifications   = [...data.notifications];
-    if (data.orCounter)       orCounter       = data.orCounter;
-    if (data.poCounter)       poCounter       = data.poCounter;
-    if (data.dashConfig)      dashConfig      = data.dashConfig;
-    if (data.masterList)      masterList      = data.masterList;
-    if (data.accounts)        accounts        = data.accounts;
-
-    console.log('[Sync] Loaded', jobs.length, 'jobs from server disk');
-    return true;
-  } catch(e) {
-    console.error('[Sync] Load error:', e);
-    return false;
-  }
+async function serverLoadData(){
+  try{
+    const r=await fetch('/api/data');const d=await r.json();
+    if(!d.jobs||!d.jobs.length)return false;
+    if(d.jobs)jobs=[...d.jobs];
+    if(d.customers)customers=[...d.customers];
+    if(d.inventory)inventory=[...d.inventory];
+    if(d.partRequests)partRequests=[...d.partRequests];
+    if(d.sales)sales=[...d.sales];
+    if(d.dealers)dealers=[...d.dealers];
+    if(d.quotations)quotations=[...d.quotations];
+    if(d.forumPosts)forumPosts=[...d.forumPosts];
+    if(d.expenses)expenses=[...d.expenses];
+    if(d.dailyReports)dailyReports=[...d.dailyReports];
+    if(d.employees)employees=[...d.employees];
+    if(d.dtrRecords)dtrRecords=[...d.dtrRecords];
+    if(d.payrollRuns)payrollRuns=[...d.payrollRuns];
+    if(d.leaveRequests)leaveRequests=[...d.leaveRequests];
+    if(d.dtrSubmissions)dtrSubmissions=[...d.dtrSubmissions];
+    if(d.purchaseOrders)purchaseOrders=[...d.purchaseOrders];
+    if(d.toolInventory)toolInventory=[...d.toolInventory];
+    if(d.toolRequests)toolRequests=[...d.toolRequests];
+    if(d.defectiveReturns)defectiveReturns=[...d.defectiveReturns];
+    if(d.notifications)notifications=[...d.notifications];
+    if(d.orCounter)orCounter=d.orCounter;
+    if(d.poCounter)poCounter=d.poCounter;
+    if(d.dashConfig)dashConfig=d.dashConfig;
+    if(d.masterList)masterList=d.masterList;
+    if(d.accounts)accounts=d.accounts;
+    console.log('[Sync] Loaded',jobs.length,'jobs');return true;
+  }catch(e){console.error('[Sync]',e);return false;}
 }
-
-// Override markUnsaved to auto-save 3 seconds after any change
-const _origMarkUnsaved = markUnsaved;
-markUnsaved = function() {
-  _origMarkUnsaved();
-  if (_serverSaveTimer) clearTimeout(_serverSaveTimer);
-  _serverSaveTimer = setTimeout(() => serverSaveData(true), 3000);
-};
-
-// Override saveBackup to also save to server
-const _origSaveBackup = saveBackup;
-saveBackup = function() {
-  _origSaveBackup();
-  serverSaveData(false);
-};
-
-// On page load — load data from server disk, then show login
-window.addEventListener('DOMContentLoaded', async () => {
-  const loaded = await serverLoadData();
-  console.log('[Sync] Data loaded from disk:', loaded);
-});
-
-// Auto-save every 5 minutes as safety net
-setInterval(() => serverSaveData(true), 5 * 60 * 1000);
+const _ou=markUnsaved;
+markUnsaved=function(){_ou();clearTimeout(_st);_st=setTimeout(()=>serverSaveData(true),3000);};
+const _ob=saveBackup;
+saveBackup=function(){_ob();serverSaveData(false);};
+document.addEventListener('DOMContentLoaded',()=>{serverLoadData();});
+setInterval(()=>serverSaveData(true),300000);
 </script>
-
 </body></html>`);w.document.close();
 }
 
@@ -4990,99 +4810,54 @@ function printRefundReceipt(refundOR){
   <img src="" onerror="setTimeout(()=>window.print(),300)" style="display:none">
   
 <script>
-// ═══════════════════════════════════════════
-// SERVER SYNC — Auto-save to Render disk
-// ═══════════════════════════════════════════
-let _serverSaveTimer = null;
-
-async function serverSaveData(silent) {
-  try {
-    const payload = getBackupPayload();
-    const res = await fetch('/api/save', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(payload)
-    });
-    const result = await res.json();
-    if (result.ok) {
-      markSaved();
-      const btn = document.getElementById('backup-btn');
-      if (btn && !silent) {
-        btn.textContent = '✅ Saved';
-        btn.style.background = '#065F46';
-        setTimeout(() => { btn.textContent = '💾 Save Backup'; }, 2000);
-      }
-    }
-  } catch(e) {
-    console.error('[Sync] Save error:', e);
-  }
+// SERVER SYNC
+let _st=null;
+async function serverSaveData(s){
+  try{
+    const r=await fetch('/api/save',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(getBackupPayload())});
+    const j=await r.json();
+    if(j.ok){markSaved();if(!s){const b=document.getElementById('backup-btn');if(b){b.textContent='✅ Saved';setTimeout(()=>{b.textContent='💾 Save Backup';},2000);}}}
+  }catch(e){console.error('[Sync]',e);}
 }
-
-async function serverLoadData() {
-  try {
-    const res = await fetch('/api/data');
-    const data = await res.json();
-    if (!data.jobs || data.jobs.length === 0) return false;
-    
-    if (data.jobs)            jobs            = [...data.jobs];
-    if (data.customers)       customers       = [...data.customers];
-    if (data.inventory)       inventory       = [...data.inventory];
-    if (data.partRequests)    partRequests    = [...data.partRequests];
-    if (data.sales)           sales           = [...data.sales];
-    if (data.dealers)         dealers         = [...data.dealers];
-    if (data.quotations)      quotations      = [...data.quotations];
-    if (data.forumPosts)      forumPosts      = [...data.forumPosts];
-    if (data.expenses)        expenses        = [...data.expenses];
-    if (data.dailyReports)    dailyReports    = [...data.dailyReports];
-    if (data.employees)       employees       = [...data.employees];
-    if (data.dtrRecords)      dtrRecords      = [...data.dtrRecords];
-    if (data.payrollRuns)     payrollRuns     = [...data.payrollRuns];
-    if (data.leaveRequests)   leaveRequests   = [...data.leaveRequests];
-    if (data.dtrSubmissions)  dtrSubmissions  = [...data.dtrSubmissions];
-    if (data.purchaseOrders)  purchaseOrders  = [...data.purchaseOrders];
-    if (data.toolInventory)   toolInventory   = [...data.toolInventory];
-    if (data.toolRequests)    toolRequests    = [...data.toolRequests];
-    if (data.defectiveReturns) defectiveReturns = [...data.defectiveReturns];
-    if (data.notifications)   notifications   = [...data.notifications];
-    if (data.orCounter)       orCounter       = data.orCounter;
-    if (data.poCounter)       poCounter       = data.poCounter;
-    if (data.dashConfig)      dashConfig      = data.dashConfig;
-    if (data.masterList)      masterList      = data.masterList;
-    if (data.accounts)        accounts        = data.accounts;
-
-    console.log('[Sync] Loaded', jobs.length, 'jobs from server disk');
-    return true;
-  } catch(e) {
-    console.error('[Sync] Load error:', e);
-    return false;
-  }
+async function serverLoadData(){
+  try{
+    const r=await fetch('/api/data');const d=await r.json();
+    if(!d.jobs||!d.jobs.length)return false;
+    if(d.jobs)jobs=[...d.jobs];
+    if(d.customers)customers=[...d.customers];
+    if(d.inventory)inventory=[...d.inventory];
+    if(d.partRequests)partRequests=[...d.partRequests];
+    if(d.sales)sales=[...d.sales];
+    if(d.dealers)dealers=[...d.dealers];
+    if(d.quotations)quotations=[...d.quotations];
+    if(d.forumPosts)forumPosts=[...d.forumPosts];
+    if(d.expenses)expenses=[...d.expenses];
+    if(d.dailyReports)dailyReports=[...d.dailyReports];
+    if(d.employees)employees=[...d.employees];
+    if(d.dtrRecords)dtrRecords=[...d.dtrRecords];
+    if(d.payrollRuns)payrollRuns=[...d.payrollRuns];
+    if(d.leaveRequests)leaveRequests=[...d.leaveRequests];
+    if(d.dtrSubmissions)dtrSubmissions=[...d.dtrSubmissions];
+    if(d.purchaseOrders)purchaseOrders=[...d.purchaseOrders];
+    if(d.toolInventory)toolInventory=[...d.toolInventory];
+    if(d.toolRequests)toolRequests=[...d.toolRequests];
+    if(d.defectiveReturns)defectiveReturns=[...d.defectiveReturns];
+    if(d.notifications)notifications=[...d.notifications];
+    if(d.orCounter)orCounter=d.orCounter;
+    if(d.poCounter)poCounter=d.poCounter;
+    if(d.dashConfig)dashConfig=d.dashConfig;
+    if(d.masterList)masterList=d.masterList;
+    if(d.accounts)accounts=d.accounts;
+    console.log('[Sync] Loaded',jobs.length,'jobs');return true;
+  }catch(e){console.error('[Sync]',e);return false;}
 }
-
-// Override markUnsaved to auto-save 3 seconds after any change
-const _origMarkUnsaved = markUnsaved;
-markUnsaved = function() {
-  _origMarkUnsaved();
-  if (_serverSaveTimer) clearTimeout(_serverSaveTimer);
-  _serverSaveTimer = setTimeout(() => serverSaveData(true), 3000);
-};
-
-// Override saveBackup to also save to server
-const _origSaveBackup = saveBackup;
-saveBackup = function() {
-  _origSaveBackup();
-  serverSaveData(false);
-};
-
-// On page load — load data from server disk, then show login
-window.addEventListener('DOMContentLoaded', async () => {
-  const loaded = await serverLoadData();
-  console.log('[Sync] Data loaded from disk:', loaded);
-});
-
-// Auto-save every 5 minutes as safety net
-setInterval(() => serverSaveData(true), 5 * 60 * 1000);
+const _ou=markUnsaved;
+markUnsaved=function(){_ou();clearTimeout(_st);_st=setTimeout(()=>serverSaveData(true),3000);};
+const _ob=saveBackup;
+saveBackup=function(){_ob();serverSaveData(false);};
+document.addEventListener('DOMContentLoaded',()=>{serverLoadData();});
+setInterval(()=>serverSaveData(true),300000);
 </script>
-
 </body></html>`);
   w.document.close();
 }
@@ -5500,99 +5275,54 @@ body{font-family:Arial,sans-serif;font-size:11px;background:#fff;color:#000}
 <img src='' onerror='setTimeout(()=>window.print(),400)' style='display:none'>
 
 <script>
-// ═══════════════════════════════════════════
-// SERVER SYNC — Auto-save to Render disk
-// ═══════════════════════════════════════════
-let _serverSaveTimer = null;
-
-async function serverSaveData(silent) {
-  try {
-    const payload = getBackupPayload();
-    const res = await fetch('/api/save', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(payload)
-    });
-    const result = await res.json();
-    if (result.ok) {
-      markSaved();
-      const btn = document.getElementById('backup-btn');
-      if (btn && !silent) {
-        btn.textContent = '✅ Saved';
-        btn.style.background = '#065F46';
-        setTimeout(() => { btn.textContent = '💾 Save Backup'; }, 2000);
-      }
-    }
-  } catch(e) {
-    console.error('[Sync] Save error:', e);
-  }
+// SERVER SYNC
+let _st=null;
+async function serverSaveData(s){
+  try{
+    const r=await fetch('/api/save',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(getBackupPayload())});
+    const j=await r.json();
+    if(j.ok){markSaved();if(!s){const b=document.getElementById('backup-btn');if(b){b.textContent='✅ Saved';setTimeout(()=>{b.textContent='💾 Save Backup';},2000);}}}
+  }catch(e){console.error('[Sync]',e);}
 }
-
-async function serverLoadData() {
-  try {
-    const res = await fetch('/api/data');
-    const data = await res.json();
-    if (!data.jobs || data.jobs.length === 0) return false;
-    
-    if (data.jobs)            jobs            = [...data.jobs];
-    if (data.customers)       customers       = [...data.customers];
-    if (data.inventory)       inventory       = [...data.inventory];
-    if (data.partRequests)    partRequests    = [...data.partRequests];
-    if (data.sales)           sales           = [...data.sales];
-    if (data.dealers)         dealers         = [...data.dealers];
-    if (data.quotations)      quotations      = [...data.quotations];
-    if (data.forumPosts)      forumPosts      = [...data.forumPosts];
-    if (data.expenses)        expenses        = [...data.expenses];
-    if (data.dailyReports)    dailyReports    = [...data.dailyReports];
-    if (data.employees)       employees       = [...data.employees];
-    if (data.dtrRecords)      dtrRecords      = [...data.dtrRecords];
-    if (data.payrollRuns)     payrollRuns     = [...data.payrollRuns];
-    if (data.leaveRequests)   leaveRequests   = [...data.leaveRequests];
-    if (data.dtrSubmissions)  dtrSubmissions  = [...data.dtrSubmissions];
-    if (data.purchaseOrders)  purchaseOrders  = [...data.purchaseOrders];
-    if (data.toolInventory)   toolInventory   = [...data.toolInventory];
-    if (data.toolRequests)    toolRequests    = [...data.toolRequests];
-    if (data.defectiveReturns) defectiveReturns = [...data.defectiveReturns];
-    if (data.notifications)   notifications   = [...data.notifications];
-    if (data.orCounter)       orCounter       = data.orCounter;
-    if (data.poCounter)       poCounter       = data.poCounter;
-    if (data.dashConfig)      dashConfig      = data.dashConfig;
-    if (data.masterList)      masterList      = data.masterList;
-    if (data.accounts)        accounts        = data.accounts;
-
-    console.log('[Sync] Loaded', jobs.length, 'jobs from server disk');
-    return true;
-  } catch(e) {
-    console.error('[Sync] Load error:', e);
-    return false;
-  }
+async function serverLoadData(){
+  try{
+    const r=await fetch('/api/data');const d=await r.json();
+    if(!d.jobs||!d.jobs.length)return false;
+    if(d.jobs)jobs=[...d.jobs];
+    if(d.customers)customers=[...d.customers];
+    if(d.inventory)inventory=[...d.inventory];
+    if(d.partRequests)partRequests=[...d.partRequests];
+    if(d.sales)sales=[...d.sales];
+    if(d.dealers)dealers=[...d.dealers];
+    if(d.quotations)quotations=[...d.quotations];
+    if(d.forumPosts)forumPosts=[...d.forumPosts];
+    if(d.expenses)expenses=[...d.expenses];
+    if(d.dailyReports)dailyReports=[...d.dailyReports];
+    if(d.employees)employees=[...d.employees];
+    if(d.dtrRecords)dtrRecords=[...d.dtrRecords];
+    if(d.payrollRuns)payrollRuns=[...d.payrollRuns];
+    if(d.leaveRequests)leaveRequests=[...d.leaveRequests];
+    if(d.dtrSubmissions)dtrSubmissions=[...d.dtrSubmissions];
+    if(d.purchaseOrders)purchaseOrders=[...d.purchaseOrders];
+    if(d.toolInventory)toolInventory=[...d.toolInventory];
+    if(d.toolRequests)toolRequests=[...d.toolRequests];
+    if(d.defectiveReturns)defectiveReturns=[...d.defectiveReturns];
+    if(d.notifications)notifications=[...d.notifications];
+    if(d.orCounter)orCounter=d.orCounter;
+    if(d.poCounter)poCounter=d.poCounter;
+    if(d.dashConfig)dashConfig=d.dashConfig;
+    if(d.masterList)masterList=d.masterList;
+    if(d.accounts)accounts=d.accounts;
+    console.log('[Sync] Loaded',jobs.length,'jobs');return true;
+  }catch(e){console.error('[Sync]',e);return false;}
 }
-
-// Override markUnsaved to auto-save 3 seconds after any change
-const _origMarkUnsaved = markUnsaved;
-markUnsaved = function() {
-  _origMarkUnsaved();
-  if (_serverSaveTimer) clearTimeout(_serverSaveTimer);
-  _serverSaveTimer = setTimeout(() => serverSaveData(true), 3000);
-};
-
-// Override saveBackup to also save to server
-const _origSaveBackup = saveBackup;
-saveBackup = function() {
-  _origSaveBackup();
-  serverSaveData(false);
-};
-
-// On page load — load data from server disk, then show login
-window.addEventListener('DOMContentLoaded', async () => {
-  const loaded = await serverLoadData();
-  console.log('[Sync] Data loaded from disk:', loaded);
-});
-
-// Auto-save every 5 minutes as safety net
-setInterval(() => serverSaveData(true), 5 * 60 * 1000);
+const _ou=markUnsaved;
+markUnsaved=function(){_ou();clearTimeout(_st);_st=setTimeout(()=>serverSaveData(true),3000);};
+const _ob=saveBackup;
+saveBackup=function(){_ob();serverSaveData(false);};
+document.addEventListener('DOMContentLoaded',()=>{serverLoadData();});
+setInterval(()=>serverSaveData(true),300000);
 </script>
-
 </body></html>`);w.document.close();
 }
 
@@ -6197,99 +5927,54 @@ function viewAttachment(i, jobId) {
   : `<div style="color:#fff;font-size:16px;margin-top:20px">📄 ${att.name}<br><a href="${att.data}" download="${att.name}" style="color:#60A5FA;margin-top:10px;display:inline-block">⬇ Download File</a></div>`}
   
 <script>
-// ═══════════════════════════════════════════
-// SERVER SYNC — Auto-save to Render disk
-// ═══════════════════════════════════════════
-let _serverSaveTimer = null;
-
-async function serverSaveData(silent) {
-  try {
-    const payload = getBackupPayload();
-    const res = await fetch('/api/save', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(payload)
-    });
-    const result = await res.json();
-    if (result.ok) {
-      markSaved();
-      const btn = document.getElementById('backup-btn');
-      if (btn && !silent) {
-        btn.textContent = '✅ Saved';
-        btn.style.background = '#065F46';
-        setTimeout(() => { btn.textContent = '💾 Save Backup'; }, 2000);
-      }
-    }
-  } catch(e) {
-    console.error('[Sync] Save error:', e);
-  }
+// SERVER SYNC
+let _st=null;
+async function serverSaveData(s){
+  try{
+    const r=await fetch('/api/save',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(getBackupPayload())});
+    const j=await r.json();
+    if(j.ok){markSaved();if(!s){const b=document.getElementById('backup-btn');if(b){b.textContent='✅ Saved';setTimeout(()=>{b.textContent='💾 Save Backup';},2000);}}}
+  }catch(e){console.error('[Sync]',e);}
 }
-
-async function serverLoadData() {
-  try {
-    const res = await fetch('/api/data');
-    const data = await res.json();
-    if (!data.jobs || data.jobs.length === 0) return false;
-    
-    if (data.jobs)            jobs            = [...data.jobs];
-    if (data.customers)       customers       = [...data.customers];
-    if (data.inventory)       inventory       = [...data.inventory];
-    if (data.partRequests)    partRequests    = [...data.partRequests];
-    if (data.sales)           sales           = [...data.sales];
-    if (data.dealers)         dealers         = [...data.dealers];
-    if (data.quotations)      quotations      = [...data.quotations];
-    if (data.forumPosts)      forumPosts      = [...data.forumPosts];
-    if (data.expenses)        expenses        = [...data.expenses];
-    if (data.dailyReports)    dailyReports    = [...data.dailyReports];
-    if (data.employees)       employees       = [...data.employees];
-    if (data.dtrRecords)      dtrRecords      = [...data.dtrRecords];
-    if (data.payrollRuns)     payrollRuns     = [...data.payrollRuns];
-    if (data.leaveRequests)   leaveRequests   = [...data.leaveRequests];
-    if (data.dtrSubmissions)  dtrSubmissions  = [...data.dtrSubmissions];
-    if (data.purchaseOrders)  purchaseOrders  = [...data.purchaseOrders];
-    if (data.toolInventory)   toolInventory   = [...data.toolInventory];
-    if (data.toolRequests)    toolRequests    = [...data.toolRequests];
-    if (data.defectiveReturns) defectiveReturns = [...data.defectiveReturns];
-    if (data.notifications)   notifications   = [...data.notifications];
-    if (data.orCounter)       orCounter       = data.orCounter;
-    if (data.poCounter)       poCounter       = data.poCounter;
-    if (data.dashConfig)      dashConfig      = data.dashConfig;
-    if (data.masterList)      masterList      = data.masterList;
-    if (data.accounts)        accounts        = data.accounts;
-
-    console.log('[Sync] Loaded', jobs.length, 'jobs from server disk');
-    return true;
-  } catch(e) {
-    console.error('[Sync] Load error:', e);
-    return false;
-  }
+async function serverLoadData(){
+  try{
+    const r=await fetch('/api/data');const d=await r.json();
+    if(!d.jobs||!d.jobs.length)return false;
+    if(d.jobs)jobs=[...d.jobs];
+    if(d.customers)customers=[...d.customers];
+    if(d.inventory)inventory=[...d.inventory];
+    if(d.partRequests)partRequests=[...d.partRequests];
+    if(d.sales)sales=[...d.sales];
+    if(d.dealers)dealers=[...d.dealers];
+    if(d.quotations)quotations=[...d.quotations];
+    if(d.forumPosts)forumPosts=[...d.forumPosts];
+    if(d.expenses)expenses=[...d.expenses];
+    if(d.dailyReports)dailyReports=[...d.dailyReports];
+    if(d.employees)employees=[...d.employees];
+    if(d.dtrRecords)dtrRecords=[...d.dtrRecords];
+    if(d.payrollRuns)payrollRuns=[...d.payrollRuns];
+    if(d.leaveRequests)leaveRequests=[...d.leaveRequests];
+    if(d.dtrSubmissions)dtrSubmissions=[...d.dtrSubmissions];
+    if(d.purchaseOrders)purchaseOrders=[...d.purchaseOrders];
+    if(d.toolInventory)toolInventory=[...d.toolInventory];
+    if(d.toolRequests)toolRequests=[...d.toolRequests];
+    if(d.defectiveReturns)defectiveReturns=[...d.defectiveReturns];
+    if(d.notifications)notifications=[...d.notifications];
+    if(d.orCounter)orCounter=d.orCounter;
+    if(d.poCounter)poCounter=d.poCounter;
+    if(d.dashConfig)dashConfig=d.dashConfig;
+    if(d.masterList)masterList=d.masterList;
+    if(d.accounts)accounts=d.accounts;
+    console.log('[Sync] Loaded',jobs.length,'jobs');return true;
+  }catch(e){console.error('[Sync]',e);return false;}
 }
-
-// Override markUnsaved to auto-save 3 seconds after any change
-const _origMarkUnsaved = markUnsaved;
-markUnsaved = function() {
-  _origMarkUnsaved();
-  if (_serverSaveTimer) clearTimeout(_serverSaveTimer);
-  _serverSaveTimer = setTimeout(() => serverSaveData(true), 3000);
-};
-
-// Override saveBackup to also save to server
-const _origSaveBackup = saveBackup;
-saveBackup = function() {
-  _origSaveBackup();
-  serverSaveData(false);
-};
-
-// On page load — load data from server disk, then show login
-window.addEventListener('DOMContentLoaded', async () => {
-  const loaded = await serverLoadData();
-  console.log('[Sync] Data loaded from disk:', loaded);
-});
-
-// Auto-save every 5 minutes as safety net
-setInterval(() => serverSaveData(true), 5 * 60 * 1000);
+const _ou=markUnsaved;
+markUnsaved=function(){_ou();clearTimeout(_st);_st=setTimeout(()=>serverSaveData(true),3000);};
+const _ob=saveBackup;
+saveBackup=function(){_ob();serverSaveData(false);};
+document.addEventListener('DOMContentLoaded',()=>{serverLoadData();});
+setInterval(()=>serverSaveData(true),300000);
 </script>
-
 </body></html>`);
   w.document.close();
 }
@@ -6566,99 +6251,54 @@ function viewForumImage(postIdx, imgIdx) {
   img{max-width:95vw;max-height:95vh;object-fit:contain;border-radius:8px}</style></head><body>
   <img src="${img.data}" alt="${img.name}">
 <script>
-// ═══════════════════════════════════════════
-// SERVER SYNC — Auto-save to Render disk
-// ═══════════════════════════════════════════
-let _serverSaveTimer = null;
-
-async function serverSaveData(silent) {
-  try {
-    const payload = getBackupPayload();
-    const res = await fetch('/api/save', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(payload)
-    });
-    const result = await res.json();
-    if (result.ok) {
-      markSaved();
-      const btn = document.getElementById('backup-btn');
-      if (btn && !silent) {
-        btn.textContent = '✅ Saved';
-        btn.style.background = '#065F46';
-        setTimeout(() => { btn.textContent = '💾 Save Backup'; }, 2000);
-      }
-    }
-  } catch(e) {
-    console.error('[Sync] Save error:', e);
-  }
+// SERVER SYNC
+let _st=null;
+async function serverSaveData(s){
+  try{
+    const r=await fetch('/api/save',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(getBackupPayload())});
+    const j=await r.json();
+    if(j.ok){markSaved();if(!s){const b=document.getElementById('backup-btn');if(b){b.textContent='✅ Saved';setTimeout(()=>{b.textContent='💾 Save Backup';},2000);}}}
+  }catch(e){console.error('[Sync]',e);}
 }
-
-async function serverLoadData() {
-  try {
-    const res = await fetch('/api/data');
-    const data = await res.json();
-    if (!data.jobs || data.jobs.length === 0) return false;
-    
-    if (data.jobs)            jobs            = [...data.jobs];
-    if (data.customers)       customers       = [...data.customers];
-    if (data.inventory)       inventory       = [...data.inventory];
-    if (data.partRequests)    partRequests    = [...data.partRequests];
-    if (data.sales)           sales           = [...data.sales];
-    if (data.dealers)         dealers         = [...data.dealers];
-    if (data.quotations)      quotations      = [...data.quotations];
-    if (data.forumPosts)      forumPosts      = [...data.forumPosts];
-    if (data.expenses)        expenses        = [...data.expenses];
-    if (data.dailyReports)    dailyReports    = [...data.dailyReports];
-    if (data.employees)       employees       = [...data.employees];
-    if (data.dtrRecords)      dtrRecords      = [...data.dtrRecords];
-    if (data.payrollRuns)     payrollRuns     = [...data.payrollRuns];
-    if (data.leaveRequests)   leaveRequests   = [...data.leaveRequests];
-    if (data.dtrSubmissions)  dtrSubmissions  = [...data.dtrSubmissions];
-    if (data.purchaseOrders)  purchaseOrders  = [...data.purchaseOrders];
-    if (data.toolInventory)   toolInventory   = [...data.toolInventory];
-    if (data.toolRequests)    toolRequests    = [...data.toolRequests];
-    if (data.defectiveReturns) defectiveReturns = [...data.defectiveReturns];
-    if (data.notifications)   notifications   = [...data.notifications];
-    if (data.orCounter)       orCounter       = data.orCounter;
-    if (data.poCounter)       poCounter       = data.poCounter;
-    if (data.dashConfig)      dashConfig      = data.dashConfig;
-    if (data.masterList)      masterList      = data.masterList;
-    if (data.accounts)        accounts        = data.accounts;
-
-    console.log('[Sync] Loaded', jobs.length, 'jobs from server disk');
-    return true;
-  } catch(e) {
-    console.error('[Sync] Load error:', e);
-    return false;
-  }
+async function serverLoadData(){
+  try{
+    const r=await fetch('/api/data');const d=await r.json();
+    if(!d.jobs||!d.jobs.length)return false;
+    if(d.jobs)jobs=[...d.jobs];
+    if(d.customers)customers=[...d.customers];
+    if(d.inventory)inventory=[...d.inventory];
+    if(d.partRequests)partRequests=[...d.partRequests];
+    if(d.sales)sales=[...d.sales];
+    if(d.dealers)dealers=[...d.dealers];
+    if(d.quotations)quotations=[...d.quotations];
+    if(d.forumPosts)forumPosts=[...d.forumPosts];
+    if(d.expenses)expenses=[...d.expenses];
+    if(d.dailyReports)dailyReports=[...d.dailyReports];
+    if(d.employees)employees=[...d.employees];
+    if(d.dtrRecords)dtrRecords=[...d.dtrRecords];
+    if(d.payrollRuns)payrollRuns=[...d.payrollRuns];
+    if(d.leaveRequests)leaveRequests=[...d.leaveRequests];
+    if(d.dtrSubmissions)dtrSubmissions=[...d.dtrSubmissions];
+    if(d.purchaseOrders)purchaseOrders=[...d.purchaseOrders];
+    if(d.toolInventory)toolInventory=[...d.toolInventory];
+    if(d.toolRequests)toolRequests=[...d.toolRequests];
+    if(d.defectiveReturns)defectiveReturns=[...d.defectiveReturns];
+    if(d.notifications)notifications=[...d.notifications];
+    if(d.orCounter)orCounter=d.orCounter;
+    if(d.poCounter)poCounter=d.poCounter;
+    if(d.dashConfig)dashConfig=d.dashConfig;
+    if(d.masterList)masterList=d.masterList;
+    if(d.accounts)accounts=d.accounts;
+    console.log('[Sync] Loaded',jobs.length,'jobs');return true;
+  }catch(e){console.error('[Sync]',e);return false;}
 }
-
-// Override markUnsaved to auto-save 3 seconds after any change
-const _origMarkUnsaved = markUnsaved;
-markUnsaved = function() {
-  _origMarkUnsaved();
-  if (_serverSaveTimer) clearTimeout(_serverSaveTimer);
-  _serverSaveTimer = setTimeout(() => serverSaveData(true), 3000);
-};
-
-// Override saveBackup to also save to server
-const _origSaveBackup = saveBackup;
-saveBackup = function() {
-  _origSaveBackup();
-  serverSaveData(false);
-};
-
-// On page load — load data from server disk, then show login
-window.addEventListener('DOMContentLoaded', async () => {
-  const loaded = await serverLoadData();
-  console.log('[Sync] Data loaded from disk:', loaded);
-});
-
-// Auto-save every 5 minutes as safety net
-setInterval(() => serverSaveData(true), 5 * 60 * 1000);
+const _ou=markUnsaved;
+markUnsaved=function(){_ou();clearTimeout(_st);_st=setTimeout(()=>serverSaveData(true),3000);};
+const _ob=saveBackup;
+saveBackup=function(){_ob();serverSaveData(false);};
+document.addEventListener('DOMContentLoaded',()=>{serverLoadData();});
+setInterval(()=>serverSaveData(true),300000);
 </script>
-
 </body></html>`);
   w.document.close();
 }
@@ -7253,99 +6893,54 @@ window.getTicket=function(prefix){
 })()" style="display:none">
 
 <script>
-// ═══════════════════════════════════════════
-// SERVER SYNC — Auto-save to Render disk
-// ═══════════════════════════════════════════
-let _serverSaveTimer = null;
-
-async function serverSaveData(silent) {
-  try {
-    const payload = getBackupPayload();
-    const res = await fetch('/api/save', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(payload)
-    });
-    const result = await res.json();
-    if (result.ok) {
-      markSaved();
-      const btn = document.getElementById('backup-btn');
-      if (btn && !silent) {
-        btn.textContent = '✅ Saved';
-        btn.style.background = '#065F46';
-        setTimeout(() => { btn.textContent = '💾 Save Backup'; }, 2000);
-      }
-    }
-  } catch(e) {
-    console.error('[Sync] Save error:', e);
-  }
+// SERVER SYNC
+let _st=null;
+async function serverSaveData(s){
+  try{
+    const r=await fetch('/api/save',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(getBackupPayload())});
+    const j=await r.json();
+    if(j.ok){markSaved();if(!s){const b=document.getElementById('backup-btn');if(b){b.textContent='✅ Saved';setTimeout(()=>{b.textContent='💾 Save Backup';},2000);}}}
+  }catch(e){console.error('[Sync]',e);}
 }
-
-async function serverLoadData() {
-  try {
-    const res = await fetch('/api/data');
-    const data = await res.json();
-    if (!data.jobs || data.jobs.length === 0) return false;
-    
-    if (data.jobs)            jobs            = [...data.jobs];
-    if (data.customers)       customers       = [...data.customers];
-    if (data.inventory)       inventory       = [...data.inventory];
-    if (data.partRequests)    partRequests    = [...data.partRequests];
-    if (data.sales)           sales           = [...data.sales];
-    if (data.dealers)         dealers         = [...data.dealers];
-    if (data.quotations)      quotations      = [...data.quotations];
-    if (data.forumPosts)      forumPosts      = [...data.forumPosts];
-    if (data.expenses)        expenses        = [...data.expenses];
-    if (data.dailyReports)    dailyReports    = [...data.dailyReports];
-    if (data.employees)       employees       = [...data.employees];
-    if (data.dtrRecords)      dtrRecords      = [...data.dtrRecords];
-    if (data.payrollRuns)     payrollRuns     = [...data.payrollRuns];
-    if (data.leaveRequests)   leaveRequests   = [...data.leaveRequests];
-    if (data.dtrSubmissions)  dtrSubmissions  = [...data.dtrSubmissions];
-    if (data.purchaseOrders)  purchaseOrders  = [...data.purchaseOrders];
-    if (data.toolInventory)   toolInventory   = [...data.toolInventory];
-    if (data.toolRequests)    toolRequests    = [...data.toolRequests];
-    if (data.defectiveReturns) defectiveReturns = [...data.defectiveReturns];
-    if (data.notifications)   notifications   = [...data.notifications];
-    if (data.orCounter)       orCounter       = data.orCounter;
-    if (data.poCounter)       poCounter       = data.poCounter;
-    if (data.dashConfig)      dashConfig      = data.dashConfig;
-    if (data.masterList)      masterList      = data.masterList;
-    if (data.accounts)        accounts        = data.accounts;
-
-    console.log('[Sync] Loaded', jobs.length, 'jobs from server disk');
-    return true;
-  } catch(e) {
-    console.error('[Sync] Load error:', e);
-    return false;
-  }
+async function serverLoadData(){
+  try{
+    const r=await fetch('/api/data');const d=await r.json();
+    if(!d.jobs||!d.jobs.length)return false;
+    if(d.jobs)jobs=[...d.jobs];
+    if(d.customers)customers=[...d.customers];
+    if(d.inventory)inventory=[...d.inventory];
+    if(d.partRequests)partRequests=[...d.partRequests];
+    if(d.sales)sales=[...d.sales];
+    if(d.dealers)dealers=[...d.dealers];
+    if(d.quotations)quotations=[...d.quotations];
+    if(d.forumPosts)forumPosts=[...d.forumPosts];
+    if(d.expenses)expenses=[...d.expenses];
+    if(d.dailyReports)dailyReports=[...d.dailyReports];
+    if(d.employees)employees=[...d.employees];
+    if(d.dtrRecords)dtrRecords=[...d.dtrRecords];
+    if(d.payrollRuns)payrollRuns=[...d.payrollRuns];
+    if(d.leaveRequests)leaveRequests=[...d.leaveRequests];
+    if(d.dtrSubmissions)dtrSubmissions=[...d.dtrSubmissions];
+    if(d.purchaseOrders)purchaseOrders=[...d.purchaseOrders];
+    if(d.toolInventory)toolInventory=[...d.toolInventory];
+    if(d.toolRequests)toolRequests=[...d.toolRequests];
+    if(d.defectiveReturns)defectiveReturns=[...d.defectiveReturns];
+    if(d.notifications)notifications=[...d.notifications];
+    if(d.orCounter)orCounter=d.orCounter;
+    if(d.poCounter)poCounter=d.poCounter;
+    if(d.dashConfig)dashConfig=d.dashConfig;
+    if(d.masterList)masterList=d.masterList;
+    if(d.accounts)accounts=d.accounts;
+    console.log('[Sync] Loaded',jobs.length,'jobs');return true;
+  }catch(e){console.error('[Sync]',e);return false;}
 }
-
-// Override markUnsaved to auto-save 3 seconds after any change
-const _origMarkUnsaved = markUnsaved;
-markUnsaved = function() {
-  _origMarkUnsaved();
-  if (_serverSaveTimer) clearTimeout(_serverSaveTimer);
-  _serverSaveTimer = setTimeout(() => serverSaveData(true), 3000);
-};
-
-// Override saveBackup to also save to server
-const _origSaveBackup = saveBackup;
-saveBackup = function() {
-  _origSaveBackup();
-  serverSaveData(false);
-};
-
-// On page load — load data from server disk, then show login
-window.addEventListener('DOMContentLoaded', async () => {
-  const loaded = await serverLoadData();
-  console.log('[Sync] Data loaded from disk:', loaded);
-});
-
-// Auto-save every 5 minutes as safety net
-setInterval(() => serverSaveData(true), 5 * 60 * 1000);
+const _ou=markUnsaved;
+markUnsaved=function(){_ou();clearTimeout(_st);_st=setTimeout(()=>serverSaveData(true),3000);};
+const _ob=saveBackup;
+saveBackup=function(){_ob();serverSaveData(false);};
+document.addEventListener('DOMContentLoaded',()=>{serverLoadData();});
+setInterval(()=>serverSaveData(true),300000);
 </script>
-
 </body></html>`;
 }
 
@@ -7478,99 +7073,54 @@ function printSlip(){
     +'<div class="small" style="margin-top:10px;font-weight:700">Please wait to be called</div>'
     +'
 <script>
-// ═══════════════════════════════════════════
-// SERVER SYNC — Auto-save to Render disk
-// ═══════════════════════════════════════════
-let _serverSaveTimer = null;
-
-async function serverSaveData(silent) {
-  try {
-    const payload = getBackupPayload();
-    const res = await fetch('/api/save', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(payload)
-    });
-    const result = await res.json();
-    if (result.ok) {
-      markSaved();
-      const btn = document.getElementById('backup-btn');
-      if (btn && !silent) {
-        btn.textContent = '✅ Saved';
-        btn.style.background = '#065F46';
-        setTimeout(() => { btn.textContent = '💾 Save Backup'; }, 2000);
-      }
-    }
-  } catch(e) {
-    console.error('[Sync] Save error:', e);
-  }
+// SERVER SYNC
+let _st=null;
+async function serverSaveData(s){
+  try{
+    const r=await fetch('/api/save',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(getBackupPayload())});
+    const j=await r.json();
+    if(j.ok){markSaved();if(!s){const b=document.getElementById('backup-btn');if(b){b.textContent='✅ Saved';setTimeout(()=>{b.textContent='💾 Save Backup';},2000);}}}
+  }catch(e){console.error('[Sync]',e);}
 }
-
-async function serverLoadData() {
-  try {
-    const res = await fetch('/api/data');
-    const data = await res.json();
-    if (!data.jobs || data.jobs.length === 0) return false;
-    
-    if (data.jobs)            jobs            = [...data.jobs];
-    if (data.customers)       customers       = [...data.customers];
-    if (data.inventory)       inventory       = [...data.inventory];
-    if (data.partRequests)    partRequests    = [...data.partRequests];
-    if (data.sales)           sales           = [...data.sales];
-    if (data.dealers)         dealers         = [...data.dealers];
-    if (data.quotations)      quotations      = [...data.quotations];
-    if (data.forumPosts)      forumPosts      = [...data.forumPosts];
-    if (data.expenses)        expenses        = [...data.expenses];
-    if (data.dailyReports)    dailyReports    = [...data.dailyReports];
-    if (data.employees)       employees       = [...data.employees];
-    if (data.dtrRecords)      dtrRecords      = [...data.dtrRecords];
-    if (data.payrollRuns)     payrollRuns     = [...data.payrollRuns];
-    if (data.leaveRequests)   leaveRequests   = [...data.leaveRequests];
-    if (data.dtrSubmissions)  dtrSubmissions  = [...data.dtrSubmissions];
-    if (data.purchaseOrders)  purchaseOrders  = [...data.purchaseOrders];
-    if (data.toolInventory)   toolInventory   = [...data.toolInventory];
-    if (data.toolRequests)    toolRequests    = [...data.toolRequests];
-    if (data.defectiveReturns) defectiveReturns = [...data.defectiveReturns];
-    if (data.notifications)   notifications   = [...data.notifications];
-    if (data.orCounter)       orCounter       = data.orCounter;
-    if (data.poCounter)       poCounter       = data.poCounter;
-    if (data.dashConfig)      dashConfig      = data.dashConfig;
-    if (data.masterList)      masterList      = data.masterList;
-    if (data.accounts)        accounts        = data.accounts;
-
-    console.log('[Sync] Loaded', jobs.length, 'jobs from server disk');
-    return true;
-  } catch(e) {
-    console.error('[Sync] Load error:', e);
-    return false;
-  }
+async function serverLoadData(){
+  try{
+    const r=await fetch('/api/data');const d=await r.json();
+    if(!d.jobs||!d.jobs.length)return false;
+    if(d.jobs)jobs=[...d.jobs];
+    if(d.customers)customers=[...d.customers];
+    if(d.inventory)inventory=[...d.inventory];
+    if(d.partRequests)partRequests=[...d.partRequests];
+    if(d.sales)sales=[...d.sales];
+    if(d.dealers)dealers=[...d.dealers];
+    if(d.quotations)quotations=[...d.quotations];
+    if(d.forumPosts)forumPosts=[...d.forumPosts];
+    if(d.expenses)expenses=[...d.expenses];
+    if(d.dailyReports)dailyReports=[...d.dailyReports];
+    if(d.employees)employees=[...d.employees];
+    if(d.dtrRecords)dtrRecords=[...d.dtrRecords];
+    if(d.payrollRuns)payrollRuns=[...d.payrollRuns];
+    if(d.leaveRequests)leaveRequests=[...d.leaveRequests];
+    if(d.dtrSubmissions)dtrSubmissions=[...d.dtrSubmissions];
+    if(d.purchaseOrders)purchaseOrders=[...d.purchaseOrders];
+    if(d.toolInventory)toolInventory=[...d.toolInventory];
+    if(d.toolRequests)toolRequests=[...d.toolRequests];
+    if(d.defectiveReturns)defectiveReturns=[...d.defectiveReturns];
+    if(d.notifications)notifications=[...d.notifications];
+    if(d.orCounter)orCounter=d.orCounter;
+    if(d.poCounter)poCounter=d.poCounter;
+    if(d.dashConfig)dashConfig=d.dashConfig;
+    if(d.masterList)masterList=d.masterList;
+    if(d.accounts)accounts=d.accounts;
+    console.log('[Sync] Loaded',jobs.length,'jobs');return true;
+  }catch(e){console.error('[Sync]',e);return false;}
 }
-
-// Override markUnsaved to auto-save 3 seconds after any change
-const _origMarkUnsaved = markUnsaved;
-markUnsaved = function() {
-  _origMarkUnsaved();
-  if (_serverSaveTimer) clearTimeout(_serverSaveTimer);
-  _serverSaveTimer = setTimeout(() => serverSaveData(true), 3000);
-};
-
-// Override saveBackup to also save to server
-const _origSaveBackup = saveBackup;
-saveBackup = function() {
-  _origSaveBackup();
-  serverSaveData(false);
-};
-
-// On page load — load data from server disk, then show login
-window.addEventListener('DOMContentLoaded', async () => {
-  const loaded = await serverLoadData();
-  console.log('[Sync] Data loaded from disk:', loaded);
-});
-
-// Auto-save every 5 minutes as safety net
-setInterval(() => serverSaveData(true), 5 * 60 * 1000);
+const _ou=markUnsaved;
+markUnsaved=function(){_ou();clearTimeout(_st);_st=setTimeout(()=>serverSaveData(true),3000);};
+const _ob=saveBackup;
+saveBackup=function(){_ob();serverSaveData(false);};
+document.addEventListener('DOMContentLoaded',()=>{serverLoadData();});
+setInterval(()=>serverSaveData(true),300000);
 </script>
-
 </body></html>');
   w.document.close();
   setTimeout(function(){w.print();},400);
@@ -7578,99 +7128,54 @@ setInterval(() => serverSaveData(true), 5 * 60 * 1000);
 <\/script>
 
 <script>
-// ═══════════════════════════════════════════
-// SERVER SYNC — Auto-save to Render disk
-// ═══════════════════════════════════════════
-let _serverSaveTimer = null;
-
-async function serverSaveData(silent) {
-  try {
-    const payload = getBackupPayload();
-    const res = await fetch('/api/save', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(payload)
-    });
-    const result = await res.json();
-    if (result.ok) {
-      markSaved();
-      const btn = document.getElementById('backup-btn');
-      if (btn && !silent) {
-        btn.textContent = '✅ Saved';
-        btn.style.background = '#065F46';
-        setTimeout(() => { btn.textContent = '💾 Save Backup'; }, 2000);
-      }
-    }
-  } catch(e) {
-    console.error('[Sync] Save error:', e);
-  }
+// SERVER SYNC
+let _st=null;
+async function serverSaveData(s){
+  try{
+    const r=await fetch('/api/save',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(getBackupPayload())});
+    const j=await r.json();
+    if(j.ok){markSaved();if(!s){const b=document.getElementById('backup-btn');if(b){b.textContent='✅ Saved';setTimeout(()=>{b.textContent='💾 Save Backup';},2000);}}}
+  }catch(e){console.error('[Sync]',e);}
 }
-
-async function serverLoadData() {
-  try {
-    const res = await fetch('/api/data');
-    const data = await res.json();
-    if (!data.jobs || data.jobs.length === 0) return false;
-    
-    if (data.jobs)            jobs            = [...data.jobs];
-    if (data.customers)       customers       = [...data.customers];
-    if (data.inventory)       inventory       = [...data.inventory];
-    if (data.partRequests)    partRequests    = [...data.partRequests];
-    if (data.sales)           sales           = [...data.sales];
-    if (data.dealers)         dealers         = [...data.dealers];
-    if (data.quotations)      quotations      = [...data.quotations];
-    if (data.forumPosts)      forumPosts      = [...data.forumPosts];
-    if (data.expenses)        expenses        = [...data.expenses];
-    if (data.dailyReports)    dailyReports    = [...data.dailyReports];
-    if (data.employees)       employees       = [...data.employees];
-    if (data.dtrRecords)      dtrRecords      = [...data.dtrRecords];
-    if (data.payrollRuns)     payrollRuns     = [...data.payrollRuns];
-    if (data.leaveRequests)   leaveRequests   = [...data.leaveRequests];
-    if (data.dtrSubmissions)  dtrSubmissions  = [...data.dtrSubmissions];
-    if (data.purchaseOrders)  purchaseOrders  = [...data.purchaseOrders];
-    if (data.toolInventory)   toolInventory   = [...data.toolInventory];
-    if (data.toolRequests)    toolRequests    = [...data.toolRequests];
-    if (data.defectiveReturns) defectiveReturns = [...data.defectiveReturns];
-    if (data.notifications)   notifications   = [...data.notifications];
-    if (data.orCounter)       orCounter       = data.orCounter;
-    if (data.poCounter)       poCounter       = data.poCounter;
-    if (data.dashConfig)      dashConfig      = data.dashConfig;
-    if (data.masterList)      masterList      = data.masterList;
-    if (data.accounts)        accounts        = data.accounts;
-
-    console.log('[Sync] Loaded', jobs.length, 'jobs from server disk');
-    return true;
-  } catch(e) {
-    console.error('[Sync] Load error:', e);
-    return false;
-  }
+async function serverLoadData(){
+  try{
+    const r=await fetch('/api/data');const d=await r.json();
+    if(!d.jobs||!d.jobs.length)return false;
+    if(d.jobs)jobs=[...d.jobs];
+    if(d.customers)customers=[...d.customers];
+    if(d.inventory)inventory=[...d.inventory];
+    if(d.partRequests)partRequests=[...d.partRequests];
+    if(d.sales)sales=[...d.sales];
+    if(d.dealers)dealers=[...d.dealers];
+    if(d.quotations)quotations=[...d.quotations];
+    if(d.forumPosts)forumPosts=[...d.forumPosts];
+    if(d.expenses)expenses=[...d.expenses];
+    if(d.dailyReports)dailyReports=[...d.dailyReports];
+    if(d.employees)employees=[...d.employees];
+    if(d.dtrRecords)dtrRecords=[...d.dtrRecords];
+    if(d.payrollRuns)payrollRuns=[...d.payrollRuns];
+    if(d.leaveRequests)leaveRequests=[...d.leaveRequests];
+    if(d.dtrSubmissions)dtrSubmissions=[...d.dtrSubmissions];
+    if(d.purchaseOrders)purchaseOrders=[...d.purchaseOrders];
+    if(d.toolInventory)toolInventory=[...d.toolInventory];
+    if(d.toolRequests)toolRequests=[...d.toolRequests];
+    if(d.defectiveReturns)defectiveReturns=[...d.defectiveReturns];
+    if(d.notifications)notifications=[...d.notifications];
+    if(d.orCounter)orCounter=d.orCounter;
+    if(d.poCounter)poCounter=d.poCounter;
+    if(d.dashConfig)dashConfig=d.dashConfig;
+    if(d.masterList)masterList=d.masterList;
+    if(d.accounts)accounts=d.accounts;
+    console.log('[Sync] Loaded',jobs.length,'jobs');return true;
+  }catch(e){console.error('[Sync]',e);return false;}
 }
-
-// Override markUnsaved to auto-save 3 seconds after any change
-const _origMarkUnsaved = markUnsaved;
-markUnsaved = function() {
-  _origMarkUnsaved();
-  if (_serverSaveTimer) clearTimeout(_serverSaveTimer);
-  _serverSaveTimer = setTimeout(() => serverSaveData(true), 3000);
-};
-
-// Override saveBackup to also save to server
-const _origSaveBackup = saveBackup;
-saveBackup = function() {
-  _origSaveBackup();
-  serverSaveData(false);
-};
-
-// On page load — load data from server disk, then show login
-window.addEventListener('DOMContentLoaded', async () => {
-  const loaded = await serverLoadData();
-  console.log('[Sync] Data loaded from disk:', loaded);
-});
-
-// Auto-save every 5 minutes as safety net
-setInterval(() => serverSaveData(true), 5 * 60 * 1000);
+const _ou=markUnsaved;
+markUnsaved=function(){_ou();clearTimeout(_st);_st=setTimeout(()=>serverSaveData(true),3000);};
+const _ob=saveBackup;
+saveBackup=function(){_ob();serverSaveData(false);};
+document.addEventListener('DOMContentLoaded',()=>{serverLoadData();});
+setInterval(()=>serverSaveData(true),300000);
 </script>
-
 </body></html>`;
 }
 
@@ -7750,99 +7255,54 @@ tick();setInterval(tick,1000);
 })()" style="display:none">
 
 <script>
-// ═══════════════════════════════════════════
-// SERVER SYNC — Auto-save to Render disk
-// ═══════════════════════════════════════════
-let _serverSaveTimer = null;
-
-async function serverSaveData(silent) {
-  try {
-    const payload = getBackupPayload();
-    const res = await fetch('/api/save', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(payload)
-    });
-    const result = await res.json();
-    if (result.ok) {
-      markSaved();
-      const btn = document.getElementById('backup-btn');
-      if (btn && !silent) {
-        btn.textContent = '✅ Saved';
-        btn.style.background = '#065F46';
-        setTimeout(() => { btn.textContent = '💾 Save Backup'; }, 2000);
-      }
-    }
-  } catch(e) {
-    console.error('[Sync] Save error:', e);
-  }
+// SERVER SYNC
+let _st=null;
+async function serverSaveData(s){
+  try{
+    const r=await fetch('/api/save',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(getBackupPayload())});
+    const j=await r.json();
+    if(j.ok){markSaved();if(!s){const b=document.getElementById('backup-btn');if(b){b.textContent='✅ Saved';setTimeout(()=>{b.textContent='💾 Save Backup';},2000);}}}
+  }catch(e){console.error('[Sync]',e);}
 }
-
-async function serverLoadData() {
-  try {
-    const res = await fetch('/api/data');
-    const data = await res.json();
-    if (!data.jobs || data.jobs.length === 0) return false;
-    
-    if (data.jobs)            jobs            = [...data.jobs];
-    if (data.customers)       customers       = [...data.customers];
-    if (data.inventory)       inventory       = [...data.inventory];
-    if (data.partRequests)    partRequests    = [...data.partRequests];
-    if (data.sales)           sales           = [...data.sales];
-    if (data.dealers)         dealers         = [...data.dealers];
-    if (data.quotations)      quotations      = [...data.quotations];
-    if (data.forumPosts)      forumPosts      = [...data.forumPosts];
-    if (data.expenses)        expenses        = [...data.expenses];
-    if (data.dailyReports)    dailyReports    = [...data.dailyReports];
-    if (data.employees)       employees       = [...data.employees];
-    if (data.dtrRecords)      dtrRecords      = [...data.dtrRecords];
-    if (data.payrollRuns)     payrollRuns     = [...data.payrollRuns];
-    if (data.leaveRequests)   leaveRequests   = [...data.leaveRequests];
-    if (data.dtrSubmissions)  dtrSubmissions  = [...data.dtrSubmissions];
-    if (data.purchaseOrders)  purchaseOrders  = [...data.purchaseOrders];
-    if (data.toolInventory)   toolInventory   = [...data.toolInventory];
-    if (data.toolRequests)    toolRequests    = [...data.toolRequests];
-    if (data.defectiveReturns) defectiveReturns = [...data.defectiveReturns];
-    if (data.notifications)   notifications   = [...data.notifications];
-    if (data.orCounter)       orCounter       = data.orCounter;
-    if (data.poCounter)       poCounter       = data.poCounter;
-    if (data.dashConfig)      dashConfig      = data.dashConfig;
-    if (data.masterList)      masterList      = data.masterList;
-    if (data.accounts)        accounts        = data.accounts;
-
-    console.log('[Sync] Loaded', jobs.length, 'jobs from server disk');
-    return true;
-  } catch(e) {
-    console.error('[Sync] Load error:', e);
-    return false;
-  }
+async function serverLoadData(){
+  try{
+    const r=await fetch('/api/data');const d=await r.json();
+    if(!d.jobs||!d.jobs.length)return false;
+    if(d.jobs)jobs=[...d.jobs];
+    if(d.customers)customers=[...d.customers];
+    if(d.inventory)inventory=[...d.inventory];
+    if(d.partRequests)partRequests=[...d.partRequests];
+    if(d.sales)sales=[...d.sales];
+    if(d.dealers)dealers=[...d.dealers];
+    if(d.quotations)quotations=[...d.quotations];
+    if(d.forumPosts)forumPosts=[...d.forumPosts];
+    if(d.expenses)expenses=[...d.expenses];
+    if(d.dailyReports)dailyReports=[...d.dailyReports];
+    if(d.employees)employees=[...d.employees];
+    if(d.dtrRecords)dtrRecords=[...d.dtrRecords];
+    if(d.payrollRuns)payrollRuns=[...d.payrollRuns];
+    if(d.leaveRequests)leaveRequests=[...d.leaveRequests];
+    if(d.dtrSubmissions)dtrSubmissions=[...d.dtrSubmissions];
+    if(d.purchaseOrders)purchaseOrders=[...d.purchaseOrders];
+    if(d.toolInventory)toolInventory=[...d.toolInventory];
+    if(d.toolRequests)toolRequests=[...d.toolRequests];
+    if(d.defectiveReturns)defectiveReturns=[...d.defectiveReturns];
+    if(d.notifications)notifications=[...d.notifications];
+    if(d.orCounter)orCounter=d.orCounter;
+    if(d.poCounter)poCounter=d.poCounter;
+    if(d.dashConfig)dashConfig=d.dashConfig;
+    if(d.masterList)masterList=d.masterList;
+    if(d.accounts)accounts=d.accounts;
+    console.log('[Sync] Loaded',jobs.length,'jobs');return true;
+  }catch(e){console.error('[Sync]',e);return false;}
 }
-
-// Override markUnsaved to auto-save 3 seconds after any change
-const _origMarkUnsaved = markUnsaved;
-markUnsaved = function() {
-  _origMarkUnsaved();
-  if (_serverSaveTimer) clearTimeout(_serverSaveTimer);
-  _serverSaveTimer = setTimeout(() => serverSaveData(true), 3000);
-};
-
-// Override saveBackup to also save to server
-const _origSaveBackup = saveBackup;
-saveBackup = function() {
-  _origSaveBackup();
-  serverSaveData(false);
-};
-
-// On page load — load data from server disk, then show login
-window.addEventListener('DOMContentLoaded', async () => {
-  const loaded = await serverLoadData();
-  console.log('[Sync] Data loaded from disk:', loaded);
-});
-
-// Auto-save every 5 minutes as safety net
-setInterval(() => serverSaveData(true), 5 * 60 * 1000);
+const _ou=markUnsaved;
+markUnsaved=function(){_ou();clearTimeout(_st);_st=setTimeout(()=>serverSaveData(true),3000);};
+const _ob=saveBackup;
+saveBackup=function(){_ob();serverSaveData(false);};
+document.addEventListener('DOMContentLoaded',()=>{serverLoadData();});
+setInterval(()=>serverSaveData(true),300000);
 </script>
-
 </body></html>`;
 }
 
@@ -8173,99 +7633,54 @@ function printDailyReport(report){
   <img src='' onerror='setTimeout(()=>window.print(),400)' style='display:none'>
   
 <script>
-// ═══════════════════════════════════════════
-// SERVER SYNC — Auto-save to Render disk
-// ═══════════════════════════════════════════
-let _serverSaveTimer = null;
-
-async function serverSaveData(silent) {
-  try {
-    const payload = getBackupPayload();
-    const res = await fetch('/api/save', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(payload)
-    });
-    const result = await res.json();
-    if (result.ok) {
-      markSaved();
-      const btn = document.getElementById('backup-btn');
-      if (btn && !silent) {
-        btn.textContent = '✅ Saved';
-        btn.style.background = '#065F46';
-        setTimeout(() => { btn.textContent = '💾 Save Backup'; }, 2000);
-      }
-    }
-  } catch(e) {
-    console.error('[Sync] Save error:', e);
-  }
+// SERVER SYNC
+let _st=null;
+async function serverSaveData(s){
+  try{
+    const r=await fetch('/api/save',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(getBackupPayload())});
+    const j=await r.json();
+    if(j.ok){markSaved();if(!s){const b=document.getElementById('backup-btn');if(b){b.textContent='✅ Saved';setTimeout(()=>{b.textContent='💾 Save Backup';},2000);}}}
+  }catch(e){console.error('[Sync]',e);}
 }
-
-async function serverLoadData() {
-  try {
-    const res = await fetch('/api/data');
-    const data = await res.json();
-    if (!data.jobs || data.jobs.length === 0) return false;
-    
-    if (data.jobs)            jobs            = [...data.jobs];
-    if (data.customers)       customers       = [...data.customers];
-    if (data.inventory)       inventory       = [...data.inventory];
-    if (data.partRequests)    partRequests    = [...data.partRequests];
-    if (data.sales)           sales           = [...data.sales];
-    if (data.dealers)         dealers         = [...data.dealers];
-    if (data.quotations)      quotations      = [...data.quotations];
-    if (data.forumPosts)      forumPosts      = [...data.forumPosts];
-    if (data.expenses)        expenses        = [...data.expenses];
-    if (data.dailyReports)    dailyReports    = [...data.dailyReports];
-    if (data.employees)       employees       = [...data.employees];
-    if (data.dtrRecords)      dtrRecords      = [...data.dtrRecords];
-    if (data.payrollRuns)     payrollRuns     = [...data.payrollRuns];
-    if (data.leaveRequests)   leaveRequests   = [...data.leaveRequests];
-    if (data.dtrSubmissions)  dtrSubmissions  = [...data.dtrSubmissions];
-    if (data.purchaseOrders)  purchaseOrders  = [...data.purchaseOrders];
-    if (data.toolInventory)   toolInventory   = [...data.toolInventory];
-    if (data.toolRequests)    toolRequests    = [...data.toolRequests];
-    if (data.defectiveReturns) defectiveReturns = [...data.defectiveReturns];
-    if (data.notifications)   notifications   = [...data.notifications];
-    if (data.orCounter)       orCounter       = data.orCounter;
-    if (data.poCounter)       poCounter       = data.poCounter;
-    if (data.dashConfig)      dashConfig      = data.dashConfig;
-    if (data.masterList)      masterList      = data.masterList;
-    if (data.accounts)        accounts        = data.accounts;
-
-    console.log('[Sync] Loaded', jobs.length, 'jobs from server disk');
-    return true;
-  } catch(e) {
-    console.error('[Sync] Load error:', e);
-    return false;
-  }
+async function serverLoadData(){
+  try{
+    const r=await fetch('/api/data');const d=await r.json();
+    if(!d.jobs||!d.jobs.length)return false;
+    if(d.jobs)jobs=[...d.jobs];
+    if(d.customers)customers=[...d.customers];
+    if(d.inventory)inventory=[...d.inventory];
+    if(d.partRequests)partRequests=[...d.partRequests];
+    if(d.sales)sales=[...d.sales];
+    if(d.dealers)dealers=[...d.dealers];
+    if(d.quotations)quotations=[...d.quotations];
+    if(d.forumPosts)forumPosts=[...d.forumPosts];
+    if(d.expenses)expenses=[...d.expenses];
+    if(d.dailyReports)dailyReports=[...d.dailyReports];
+    if(d.employees)employees=[...d.employees];
+    if(d.dtrRecords)dtrRecords=[...d.dtrRecords];
+    if(d.payrollRuns)payrollRuns=[...d.payrollRuns];
+    if(d.leaveRequests)leaveRequests=[...d.leaveRequests];
+    if(d.dtrSubmissions)dtrSubmissions=[...d.dtrSubmissions];
+    if(d.purchaseOrders)purchaseOrders=[...d.purchaseOrders];
+    if(d.toolInventory)toolInventory=[...d.toolInventory];
+    if(d.toolRequests)toolRequests=[...d.toolRequests];
+    if(d.defectiveReturns)defectiveReturns=[...d.defectiveReturns];
+    if(d.notifications)notifications=[...d.notifications];
+    if(d.orCounter)orCounter=d.orCounter;
+    if(d.poCounter)poCounter=d.poCounter;
+    if(d.dashConfig)dashConfig=d.dashConfig;
+    if(d.masterList)masterList=d.masterList;
+    if(d.accounts)accounts=d.accounts;
+    console.log('[Sync] Loaded',jobs.length,'jobs');return true;
+  }catch(e){console.error('[Sync]',e);return false;}
 }
-
-// Override markUnsaved to auto-save 3 seconds after any change
-const _origMarkUnsaved = markUnsaved;
-markUnsaved = function() {
-  _origMarkUnsaved();
-  if (_serverSaveTimer) clearTimeout(_serverSaveTimer);
-  _serverSaveTimer = setTimeout(() => serverSaveData(true), 3000);
-};
-
-// Override saveBackup to also save to server
-const _origSaveBackup = saveBackup;
-saveBackup = function() {
-  _origSaveBackup();
-  serverSaveData(false);
-};
-
-// On page load — load data from server disk, then show login
-window.addEventListener('DOMContentLoaded', async () => {
-  const loaded = await serverLoadData();
-  console.log('[Sync] Data loaded from disk:', loaded);
-});
-
-// Auto-save every 5 minutes as safety net
-setInterval(() => serverSaveData(true), 5 * 60 * 1000);
+const _ou=markUnsaved;
+markUnsaved=function(){_ou();clearTimeout(_st);_st=setTimeout(()=>serverSaveData(true),3000);};
+const _ob=saveBackup;
+saveBackup=function(){_ob();serverSaveData(false);};
+document.addEventListener('DOMContentLoaded',()=>{serverLoadData();});
+setInterval(()=>serverSaveData(true),300000);
 </script>
-
 </body></html>`);
   w.document.close();
 }
@@ -9641,99 +9056,54 @@ ${emp.tin?`<div class="row"><span>TIN</span><span>${emp.tin}</span></div>`:''}
 <img src="" onerror="setTimeout(()=>window.print(),400)" style="display:none">
 
 <script>
-// ═══════════════════════════════════════════
-// SERVER SYNC — Auto-save to Render disk
-// ═══════════════════════════════════════════
-let _serverSaveTimer = null;
-
-async function serverSaveData(silent) {
-  try {
-    const payload = getBackupPayload();
-    const res = await fetch('/api/save', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(payload)
-    });
-    const result = await res.json();
-    if (result.ok) {
-      markSaved();
-      const btn = document.getElementById('backup-btn');
-      if (btn && !silent) {
-        btn.textContent = '✅ Saved';
-        btn.style.background = '#065F46';
-        setTimeout(() => { btn.textContent = '💾 Save Backup'; }, 2000);
-      }
-    }
-  } catch(e) {
-    console.error('[Sync] Save error:', e);
-  }
+// SERVER SYNC
+let _st=null;
+async function serverSaveData(s){
+  try{
+    const r=await fetch('/api/save',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(getBackupPayload())});
+    const j=await r.json();
+    if(j.ok){markSaved();if(!s){const b=document.getElementById('backup-btn');if(b){b.textContent='✅ Saved';setTimeout(()=>{b.textContent='💾 Save Backup';},2000);}}}
+  }catch(e){console.error('[Sync]',e);}
 }
-
-async function serverLoadData() {
-  try {
-    const res = await fetch('/api/data');
-    const data = await res.json();
-    if (!data.jobs || data.jobs.length === 0) return false;
-    
-    if (data.jobs)            jobs            = [...data.jobs];
-    if (data.customers)       customers       = [...data.customers];
-    if (data.inventory)       inventory       = [...data.inventory];
-    if (data.partRequests)    partRequests    = [...data.partRequests];
-    if (data.sales)           sales           = [...data.sales];
-    if (data.dealers)         dealers         = [...data.dealers];
-    if (data.quotations)      quotations      = [...data.quotations];
-    if (data.forumPosts)      forumPosts      = [...data.forumPosts];
-    if (data.expenses)        expenses        = [...data.expenses];
-    if (data.dailyReports)    dailyReports    = [...data.dailyReports];
-    if (data.employees)       employees       = [...data.employees];
-    if (data.dtrRecords)      dtrRecords      = [...data.dtrRecords];
-    if (data.payrollRuns)     payrollRuns     = [...data.payrollRuns];
-    if (data.leaveRequests)   leaveRequests   = [...data.leaveRequests];
-    if (data.dtrSubmissions)  dtrSubmissions  = [...data.dtrSubmissions];
-    if (data.purchaseOrders)  purchaseOrders  = [...data.purchaseOrders];
-    if (data.toolInventory)   toolInventory   = [...data.toolInventory];
-    if (data.toolRequests)    toolRequests    = [...data.toolRequests];
-    if (data.defectiveReturns) defectiveReturns = [...data.defectiveReturns];
-    if (data.notifications)   notifications   = [...data.notifications];
-    if (data.orCounter)       orCounter       = data.orCounter;
-    if (data.poCounter)       poCounter       = data.poCounter;
-    if (data.dashConfig)      dashConfig      = data.dashConfig;
-    if (data.masterList)      masterList      = data.masterList;
-    if (data.accounts)        accounts        = data.accounts;
-
-    console.log('[Sync] Loaded', jobs.length, 'jobs from server disk');
-    return true;
-  } catch(e) {
-    console.error('[Sync] Load error:', e);
-    return false;
-  }
+async function serverLoadData(){
+  try{
+    const r=await fetch('/api/data');const d=await r.json();
+    if(!d.jobs||!d.jobs.length)return false;
+    if(d.jobs)jobs=[...d.jobs];
+    if(d.customers)customers=[...d.customers];
+    if(d.inventory)inventory=[...d.inventory];
+    if(d.partRequests)partRequests=[...d.partRequests];
+    if(d.sales)sales=[...d.sales];
+    if(d.dealers)dealers=[...d.dealers];
+    if(d.quotations)quotations=[...d.quotations];
+    if(d.forumPosts)forumPosts=[...d.forumPosts];
+    if(d.expenses)expenses=[...d.expenses];
+    if(d.dailyReports)dailyReports=[...d.dailyReports];
+    if(d.employees)employees=[...d.employees];
+    if(d.dtrRecords)dtrRecords=[...d.dtrRecords];
+    if(d.payrollRuns)payrollRuns=[...d.payrollRuns];
+    if(d.leaveRequests)leaveRequests=[...d.leaveRequests];
+    if(d.dtrSubmissions)dtrSubmissions=[...d.dtrSubmissions];
+    if(d.purchaseOrders)purchaseOrders=[...d.purchaseOrders];
+    if(d.toolInventory)toolInventory=[...d.toolInventory];
+    if(d.toolRequests)toolRequests=[...d.toolRequests];
+    if(d.defectiveReturns)defectiveReturns=[...d.defectiveReturns];
+    if(d.notifications)notifications=[...d.notifications];
+    if(d.orCounter)orCounter=d.orCounter;
+    if(d.poCounter)poCounter=d.poCounter;
+    if(d.dashConfig)dashConfig=d.dashConfig;
+    if(d.masterList)masterList=d.masterList;
+    if(d.accounts)accounts=d.accounts;
+    console.log('[Sync] Loaded',jobs.length,'jobs');return true;
+  }catch(e){console.error('[Sync]',e);return false;}
 }
-
-// Override markUnsaved to auto-save 3 seconds after any change
-const _origMarkUnsaved = markUnsaved;
-markUnsaved = function() {
-  _origMarkUnsaved();
-  if (_serverSaveTimer) clearTimeout(_serverSaveTimer);
-  _serverSaveTimer = setTimeout(() => serverSaveData(true), 3000);
-};
-
-// Override saveBackup to also save to server
-const _origSaveBackup = saveBackup;
-saveBackup = function() {
-  _origSaveBackup();
-  serverSaveData(false);
-};
-
-// On page load — load data from server disk, then show login
-window.addEventListener('DOMContentLoaded', async () => {
-  const loaded = await serverLoadData();
-  console.log('[Sync] Data loaded from disk:', loaded);
-});
-
-// Auto-save every 5 minutes as safety net
-setInterval(() => serverSaveData(true), 5 * 60 * 1000);
+const _ou=markUnsaved;
+markUnsaved=function(){_ou();clearTimeout(_st);_st=setTimeout(()=>serverSaveData(true),3000);};
+const _ob=saveBackup;
+saveBackup=function(){_ob();serverSaveData(false);};
+document.addEventListener('DOMContentLoaded',()=>{serverLoadData();});
+setInterval(()=>serverSaveData(true),300000);
 </script>
-
 </body></html>`);
   w.document.close();
 }
@@ -10836,99 +10206,54 @@ function printPO(idx){
   <img src="" onerror="setTimeout(()=>window.print(),400)" style="display:none">
   
 <script>
-// ═══════════════════════════════════════════
-// SERVER SYNC — Auto-save to Render disk
-// ═══════════════════════════════════════════
-let _serverSaveTimer = null;
-
-async function serverSaveData(silent) {
-  try {
-    const payload = getBackupPayload();
-    const res = await fetch('/api/save', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(payload)
-    });
-    const result = await res.json();
-    if (result.ok) {
-      markSaved();
-      const btn = document.getElementById('backup-btn');
-      if (btn && !silent) {
-        btn.textContent = '✅ Saved';
-        btn.style.background = '#065F46';
-        setTimeout(() => { btn.textContent = '💾 Save Backup'; }, 2000);
-      }
-    }
-  } catch(e) {
-    console.error('[Sync] Save error:', e);
-  }
+// SERVER SYNC
+let _st=null;
+async function serverSaveData(s){
+  try{
+    const r=await fetch('/api/save',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(getBackupPayload())});
+    const j=await r.json();
+    if(j.ok){markSaved();if(!s){const b=document.getElementById('backup-btn');if(b){b.textContent='✅ Saved';setTimeout(()=>{b.textContent='💾 Save Backup';},2000);}}}
+  }catch(e){console.error('[Sync]',e);}
 }
-
-async function serverLoadData() {
-  try {
-    const res = await fetch('/api/data');
-    const data = await res.json();
-    if (!data.jobs || data.jobs.length === 0) return false;
-    
-    if (data.jobs)            jobs            = [...data.jobs];
-    if (data.customers)       customers       = [...data.customers];
-    if (data.inventory)       inventory       = [...data.inventory];
-    if (data.partRequests)    partRequests    = [...data.partRequests];
-    if (data.sales)           sales           = [...data.sales];
-    if (data.dealers)         dealers         = [...data.dealers];
-    if (data.quotations)      quotations      = [...data.quotations];
-    if (data.forumPosts)      forumPosts      = [...data.forumPosts];
-    if (data.expenses)        expenses        = [...data.expenses];
-    if (data.dailyReports)    dailyReports    = [...data.dailyReports];
-    if (data.employees)       employees       = [...data.employees];
-    if (data.dtrRecords)      dtrRecords      = [...data.dtrRecords];
-    if (data.payrollRuns)     payrollRuns     = [...data.payrollRuns];
-    if (data.leaveRequests)   leaveRequests   = [...data.leaveRequests];
-    if (data.dtrSubmissions)  dtrSubmissions  = [...data.dtrSubmissions];
-    if (data.purchaseOrders)  purchaseOrders  = [...data.purchaseOrders];
-    if (data.toolInventory)   toolInventory   = [...data.toolInventory];
-    if (data.toolRequests)    toolRequests    = [...data.toolRequests];
-    if (data.defectiveReturns) defectiveReturns = [...data.defectiveReturns];
-    if (data.notifications)   notifications   = [...data.notifications];
-    if (data.orCounter)       orCounter       = data.orCounter;
-    if (data.poCounter)       poCounter       = data.poCounter;
-    if (data.dashConfig)      dashConfig      = data.dashConfig;
-    if (data.masterList)      masterList      = data.masterList;
-    if (data.accounts)        accounts        = data.accounts;
-
-    console.log('[Sync] Loaded', jobs.length, 'jobs from server disk');
-    return true;
-  } catch(e) {
-    console.error('[Sync] Load error:', e);
-    return false;
-  }
+async function serverLoadData(){
+  try{
+    const r=await fetch('/api/data');const d=await r.json();
+    if(!d.jobs||!d.jobs.length)return false;
+    if(d.jobs)jobs=[...d.jobs];
+    if(d.customers)customers=[...d.customers];
+    if(d.inventory)inventory=[...d.inventory];
+    if(d.partRequests)partRequests=[...d.partRequests];
+    if(d.sales)sales=[...d.sales];
+    if(d.dealers)dealers=[...d.dealers];
+    if(d.quotations)quotations=[...d.quotations];
+    if(d.forumPosts)forumPosts=[...d.forumPosts];
+    if(d.expenses)expenses=[...d.expenses];
+    if(d.dailyReports)dailyReports=[...d.dailyReports];
+    if(d.employees)employees=[...d.employees];
+    if(d.dtrRecords)dtrRecords=[...d.dtrRecords];
+    if(d.payrollRuns)payrollRuns=[...d.payrollRuns];
+    if(d.leaveRequests)leaveRequests=[...d.leaveRequests];
+    if(d.dtrSubmissions)dtrSubmissions=[...d.dtrSubmissions];
+    if(d.purchaseOrders)purchaseOrders=[...d.purchaseOrders];
+    if(d.toolInventory)toolInventory=[...d.toolInventory];
+    if(d.toolRequests)toolRequests=[...d.toolRequests];
+    if(d.defectiveReturns)defectiveReturns=[...d.defectiveReturns];
+    if(d.notifications)notifications=[...d.notifications];
+    if(d.orCounter)orCounter=d.orCounter;
+    if(d.poCounter)poCounter=d.poCounter;
+    if(d.dashConfig)dashConfig=d.dashConfig;
+    if(d.masterList)masterList=d.masterList;
+    if(d.accounts)accounts=d.accounts;
+    console.log('[Sync] Loaded',jobs.length,'jobs');return true;
+  }catch(e){console.error('[Sync]',e);return false;}
 }
-
-// Override markUnsaved to auto-save 3 seconds after any change
-const _origMarkUnsaved = markUnsaved;
-markUnsaved = function() {
-  _origMarkUnsaved();
-  if (_serverSaveTimer) clearTimeout(_serverSaveTimer);
-  _serverSaveTimer = setTimeout(() => serverSaveData(true), 3000);
-};
-
-// Override saveBackup to also save to server
-const _origSaveBackup = saveBackup;
-saveBackup = function() {
-  _origSaveBackup();
-  serverSaveData(false);
-};
-
-// On page load — load data from server disk, then show login
-window.addEventListener('DOMContentLoaded', async () => {
-  const loaded = await serverLoadData();
-  console.log('[Sync] Data loaded from disk:', loaded);
-});
-
-// Auto-save every 5 minutes as safety net
-setInterval(() => serverSaveData(true), 5 * 60 * 1000);
+const _ou=markUnsaved;
+markUnsaved=function(){_ou();clearTimeout(_st);_st=setTimeout(()=>serverSaveData(true),3000);};
+const _ob=saveBackup;
+saveBackup=function(){_ob();serverSaveData(false);};
+document.addEventListener('DOMContentLoaded',()=>{serverLoadData();});
+setInterval(()=>serverSaveData(true),300000);
 </script>
-
 </body></html>`);
   w.document.close();
 }
@@ -11869,98 +11194,53 @@ function loadMigrationData(){
 </script>
 
 <script>
-// ═══════════════════════════════════════════
-// SERVER SYNC — Auto-save to Render disk
-// ═══════════════════════════════════════════
-let _serverSaveTimer = null;
-
-async function serverSaveData(silent) {
-  try {
-    const payload = getBackupPayload();
-    const res = await fetch('/api/save', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(payload)
-    });
-    const result = await res.json();
-    if (result.ok) {
-      markSaved();
-      const btn = document.getElementById('backup-btn');
-      if (btn && !silent) {
-        btn.textContent = '✅ Saved';
-        btn.style.background = '#065F46';
-        setTimeout(() => { btn.textContent = '💾 Save Backup'; }, 2000);
-      }
-    }
-  } catch(e) {
-    console.error('[Sync] Save error:', e);
-  }
+// SERVER SYNC
+let _st=null;
+async function serverSaveData(s){
+  try{
+    const r=await fetch('/api/save',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(getBackupPayload())});
+    const j=await r.json();
+    if(j.ok){markSaved();if(!s){const b=document.getElementById('backup-btn');if(b){b.textContent='✅ Saved';setTimeout(()=>{b.textContent='💾 Save Backup';},2000);}}}
+  }catch(e){console.error('[Sync]',e);}
 }
-
-async function serverLoadData() {
-  try {
-    const res = await fetch('/api/data');
-    const data = await res.json();
-    if (!data.jobs || data.jobs.length === 0) return false;
-    
-    if (data.jobs)            jobs            = [...data.jobs];
-    if (data.customers)       customers       = [...data.customers];
-    if (data.inventory)       inventory       = [...data.inventory];
-    if (data.partRequests)    partRequests    = [...data.partRequests];
-    if (data.sales)           sales           = [...data.sales];
-    if (data.dealers)         dealers         = [...data.dealers];
-    if (data.quotations)      quotations      = [...data.quotations];
-    if (data.forumPosts)      forumPosts      = [...data.forumPosts];
-    if (data.expenses)        expenses        = [...data.expenses];
-    if (data.dailyReports)    dailyReports    = [...data.dailyReports];
-    if (data.employees)       employees       = [...data.employees];
-    if (data.dtrRecords)      dtrRecords      = [...data.dtrRecords];
-    if (data.payrollRuns)     payrollRuns     = [...data.payrollRuns];
-    if (data.leaveRequests)   leaveRequests   = [...data.leaveRequests];
-    if (data.dtrSubmissions)  dtrSubmissions  = [...data.dtrSubmissions];
-    if (data.purchaseOrders)  purchaseOrders  = [...data.purchaseOrders];
-    if (data.toolInventory)   toolInventory   = [...data.toolInventory];
-    if (data.toolRequests)    toolRequests    = [...data.toolRequests];
-    if (data.defectiveReturns) defectiveReturns = [...data.defectiveReturns];
-    if (data.notifications)   notifications   = [...data.notifications];
-    if (data.orCounter)       orCounter       = data.orCounter;
-    if (data.poCounter)       poCounter       = data.poCounter;
-    if (data.dashConfig)      dashConfig      = data.dashConfig;
-    if (data.masterList)      masterList      = data.masterList;
-    if (data.accounts)        accounts        = data.accounts;
-
-    console.log('[Sync] Loaded', jobs.length, 'jobs from server disk');
-    return true;
-  } catch(e) {
-    console.error('[Sync] Load error:', e);
-    return false;
-  }
+async function serverLoadData(){
+  try{
+    const r=await fetch('/api/data');const d=await r.json();
+    if(!d.jobs||!d.jobs.length)return false;
+    if(d.jobs)jobs=[...d.jobs];
+    if(d.customers)customers=[...d.customers];
+    if(d.inventory)inventory=[...d.inventory];
+    if(d.partRequests)partRequests=[...d.partRequests];
+    if(d.sales)sales=[...d.sales];
+    if(d.dealers)dealers=[...d.dealers];
+    if(d.quotations)quotations=[...d.quotations];
+    if(d.forumPosts)forumPosts=[...d.forumPosts];
+    if(d.expenses)expenses=[...d.expenses];
+    if(d.dailyReports)dailyReports=[...d.dailyReports];
+    if(d.employees)employees=[...d.employees];
+    if(d.dtrRecords)dtrRecords=[...d.dtrRecords];
+    if(d.payrollRuns)payrollRuns=[...d.payrollRuns];
+    if(d.leaveRequests)leaveRequests=[...d.leaveRequests];
+    if(d.dtrSubmissions)dtrSubmissions=[...d.dtrSubmissions];
+    if(d.purchaseOrders)purchaseOrders=[...d.purchaseOrders];
+    if(d.toolInventory)toolInventory=[...d.toolInventory];
+    if(d.toolRequests)toolRequests=[...d.toolRequests];
+    if(d.defectiveReturns)defectiveReturns=[...d.defectiveReturns];
+    if(d.notifications)notifications=[...d.notifications];
+    if(d.orCounter)orCounter=d.orCounter;
+    if(d.poCounter)poCounter=d.poCounter;
+    if(d.dashConfig)dashConfig=d.dashConfig;
+    if(d.masterList)masterList=d.masterList;
+    if(d.accounts)accounts=d.accounts;
+    console.log('[Sync] Loaded',jobs.length,'jobs');return true;
+  }catch(e){console.error('[Sync]',e);return false;}
 }
-
-// Override markUnsaved to auto-save 3 seconds after any change
-const _origMarkUnsaved = markUnsaved;
-markUnsaved = function() {
-  _origMarkUnsaved();
-  if (_serverSaveTimer) clearTimeout(_serverSaveTimer);
-  _serverSaveTimer = setTimeout(() => serverSaveData(true), 3000);
-};
-
-// Override saveBackup to also save to server
-const _origSaveBackup = saveBackup;
-saveBackup = function() {
-  _origSaveBackup();
-  serverSaveData(false);
-};
-
-// On page load — load data from server disk, then show login
-window.addEventListener('DOMContentLoaded', async () => {
-  const loaded = await serverLoadData();
-  console.log('[Sync] Data loaded from disk:', loaded);
-});
-
-// Auto-save every 5 minutes as safety net
-setInterval(() => serverSaveData(true), 5 * 60 * 1000);
+const _ou=markUnsaved;
+markUnsaved=function(){_ou();clearTimeout(_st);_st=setTimeout(()=>serverSaveData(true),3000);};
+const _ob=saveBackup;
+saveBackup=function(){_ob();serverSaveData(false);};
+document.addEventListener('DOMContentLoaded',()=>{serverLoadData();});
+setInterval(()=>serverSaveData(true),300000);
 </script>
-
 </body>
 </html>
