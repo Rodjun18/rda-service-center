@@ -1,0 +1,154 @@
+═══════════════════════════════════════════════════════════════
+  RDA SERVICE CENTER — RAILWAY DEPLOYMENT GUIDE
+  Connect your domain so staff can access from ANYWHERE
+═══════════════════════════════════════════════════════════════
+
+WHAT YOU'LL NEED:
+  ✅ Your domain name (e.g. rdamobileservices.com)
+  ✅ A GitHub account (free) — github.com
+  ✅ A Railway account (free) — railway.app
+  ✅ The rda-server folder
+
+═══════════════════════════════════════════════════════════════
+STEP 1 — CREATE GITHUB ACCOUNT (if you don't have one)
+═══════════════════════════════════════════════════════════════
+
+1. Go to: https://github.com
+2. Click "Sign up"
+3. Use your email and create a password
+4. Verify your email
+
+═══════════════════════════════════════════════════════════════
+STEP 2 — UPLOAD YOUR FILES TO GITHUB
+═══════════════════════════════════════════════════════════════
+
+1. Go to: https://github.com/new
+2. Repository name: rda-service-center
+3. Set to PRIVATE (important — keeps your code private)
+4. Click "Create repository"
+
+5. On the next page, click "uploading an existing file"
+6. Drag and drop ALL files from your rda-server folder:
+   - server.js
+   - package.json
+   - railway.json
+   - .gitignore
+   - app/ folder (drag the whole folder)
+   
+   DO NOT upload:
+   - data/ folder (your live database — keep it local)
+   - START.bat (not needed on cloud)
+
+7. Scroll down, click "Commit changes"
+
+═══════════════════════════════════════════════════════════════
+STEP 3 — CREATE RAILWAY ACCOUNT
+═══════════════════════════════════════════════════════════════
+
+1. Go to: https://railway.app
+2. Click "Start a New Project"
+3. Sign in with GitHub (easiest — uses your GitHub account)
+4. Authorize Railway to access GitHub
+
+═══════════════════════════════════════════════════════════════
+STEP 4 — DEPLOY TO RAILWAY
+═══════════════════════════════════════════════════════════════
+
+1. In Railway, click "New Project"
+2. Click "Deploy from GitHub repo"
+3. Select "rda-service-center"
+4. Railway will automatically detect Node.js and deploy!
+5. Wait 2-3 minutes for deployment to finish
+6. You'll see a green "Active" status when done
+
+═══════════════════════════════════════════════════════════════
+STEP 5 — GET YOUR RAILWAY URL
+═══════════════════════════════════════════════════════════════
+
+1. In Railway, click on your project
+2. Click "Settings" tab
+3. Under "Domains" click "Generate Domain"
+4. You'll get a URL like: rda-service-center.up.railway.app
+5. Test it — open Chrome and go to that URL
+6. Your RDA system should load! ✅
+
+═══════════════════════════════════════════════════════════════
+STEP 6 — CONNECT YOUR OWN DOMAIN
+═══════════════════════════════════════════════════════════════
+
+1. In Railway → your project → Settings → Domains
+2. Click "Custom Domain"
+3. Type your domain: rdamobileservices.com
+   (or a subdomain like: system.rdamobileservices.com)
+4. Railway will show you a CNAME record to add
+
+5. Go to your domain registrar (where you bought the domain)
+   - Could be: GoDaddy, Namecheap, Hostinger, etc.
+6. Find DNS Settings / DNS Management
+7. Add a new CNAME record:
+   - Name/Host: @ or system (if using subdomain)
+   - Value/Target: paste what Railway gave you
+   - TTL: 300 or Auto
+8. Save
+
+9. Back in Railway, click "Check" — it may take 5-30 minutes
+10. Once verified, your domain shows green ✅
+
+═══════════════════════════════════════════════════════════════
+STEP 7 — IMPORT YOUR DATA
+═══════════════════════════════════════════════════════════════
+
+1. Open your domain in Chrome
+2. Log in as admin / admin
+3. Go to Settings → 📂 Data Migration
+4. Click "Import All Data Now"
+5. All your old system data is now in the cloud!
+
+OR if you already have data on your laptop:
+1. On your laptop system, go to Settings → 💾 Backup
+2. Click "Download Backup" — saves rda_backup_xxx.json
+3. Open your domain URL
+4. Settings → 💾 Backup → Load Backup File
+5. Select the file you downloaded
+
+═══════════════════════════════════════════════════════════════
+RAILWAY FREE TIER LIMITS
+═══════════════════════════════════════════════════════════════
+
+Free tier includes:
+  ✅ $5 credit per month (enough for small usage)
+  ✅ Sleeps after 30 min inactivity (wakes on next visit ~5 sec)
+  ✅ 500MB memory
+  ✅ Custom domain support
+  ✅ HTTPS (secure connection) automatic
+
+To avoid sleep (always on):
+  → Upgrade to Hobby plan: $5/month
+  → Or use a free uptime monitor (uptimerobot.com) to ping it
+
+⚠️ IMPORTANT — DATA ON RAILWAY:
+  Railway's filesystem resets on redeploy.
+  Always download a backup before redeploying!
+  
+  Better solution: Use Railway's Volume storage
+  → In Railway: Add Plugin → Volume
+  → Set DATA_DIR environment variable to /data
+  → Data persists forever even through redeploys
+
+═══════════════════════════════════════════════════════════════
+ENVIRONMENT VARIABLES (set in Railway dashboard)
+═══════════════════════════════════════════════════════════════
+
+In Railway → your project → Variables tab, add:
+
+  DATA_DIR = /data   (if using Volume for persistent storage)
+
+═══════════════════════════════════════════════════════════════
+NEED HELP?
+═══════════════════════════════════════════════════════════════
+
+RDA Mobile Phone Service Center
+Unit 26 Emilia Mindanao Souvenir Center, CM Recto St., Davao City
+Contact: 09679049992 / 3084019
+Email: operation@rdamobileservices.com
+═══════════════════════════════════════════════════════════════

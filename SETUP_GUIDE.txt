@@ -1,0 +1,182 @@
+╔══════════════════════════════════════════════════════════════╗
+║   RDA MOBILE PHONE SERVICE CENTER — SETUP GUIDE             ║
+║   Version 1.0 — Local Network Server Edition                ║
+╚══════════════════════════════════════════════════════════════╝
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+WHAT THIS DOES
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Your laptop becomes a server. All computers, tablets, and phones
+in your shop connect to it via WiFi — no internet needed.
+
+• Data is saved to your laptop (not browser memory)
+• Data never disappears on browser refresh
+• Multiple staff can use it at the same time
+• Auto-saves every time data changes (3-second delay)
+• Auto-backup every hour to data/backups/ folder
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+STEP 1 — INSTALL NODE.JS (ONCE ONLY)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+1. Go to: https://nodejs.org
+2. Download the LTS version (e.g. "22.x LTS")
+3. Run the installer — click Next, Next, Install
+4. Restart your laptop after installation
+
+To verify: Open Command Prompt and type: node --version
+You should see something like: v22.x.x
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+STEP 2 — START THE SERVER (EVERY DAY)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Windows:
+  Double-click START.bat
+  A black window will appear showing your network address.
+  DO NOT close this window — keep it open while working!
+
+Mac/Linux:
+  Open Terminal, navigate to this folder, run: bash start.sh
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+STEP 3 — CONNECT DEVICES
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+When the server starts, you will see something like:
+
+  Local (this laptop):     http://localhost:3000
+  Network (other devices): http://192.168.1.105:3000
+
+On the LAPTOP:
+  Open Chrome/Edge and go to: http://localhost:3000
+
+On OTHER DEVICES (tablets, phones, other computers):
+  Make sure they are on the SAME WiFi network as your laptop
+  Open any browser and go to: http://192.168.1.105:3000
+  (Use your actual IP shown in the server window)
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+STEP 4 — FIRST TIME SETUP (IMPORT OLD DATA)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+1. Open the system in your browser
+2. Log in as admin / admin
+3. Go to Settings → 📂 Data Migration
+4. Click "Import All Data Now"
+5. Wait for the import to complete
+6. The data is now saved automatically to your laptop!
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+FOLDER STRUCTURE
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+rda-server/
+├── START.bat              ← Double-click to start (Windows)
+├── start.sh               ← Run to start (Mac/Linux)
+├── server.js              ← The server program
+├── package.json           ← Dependencies
+├── SETUP_GUIDE.txt        ← This file
+├── app/
+│   └── index.html         ← The system (DO NOT edit manually)
+└── data/
+    ├── rda_database.json  ← Your live data (auto-saved)
+    └── backups/
+        └── rda_backup_*.json  ← Hourly backups (auto-created)
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+HOW TO CHECK IF SERVER IS RUNNING
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Open your browser and go to: http://localhost:3000/api/status
+You will see system status including job count, last save time, etc.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+HOW AUTO-SAVE WORKS
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+✅ Every time any data changes → saved to server after 3 seconds
+✅ Every 5 minutes → full save as safety net
+✅ Every 1 hour → backup copy saved to data/backups/
+✅ On server startup → backup is created immediately
+
+The topbar shows the sync status:
+  🔵 Server  — connected and ready
+  💾 Saving… — currently saving
+  ✅ Saved   — data saved successfully
+  ❌ Error   — problem saving (check server window)
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+HOW TO RESTORE FROM BACKUP
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Option 1 — Replace database file:
+  1. Stop the server (close the server window)
+  2. Go to data/backups/
+  3. Copy the backup you want (e.g. rda_backup_2026-07-01...)
+  4. Paste it to data/ and rename it to rda_database.json
+  5. Start the server again
+
+Option 2 — Load backup in browser:
+  1. In the system: Settings → 💾 Backup & Restore → Load Backup File
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+FIREWALL / WINDOWS DEFENDER
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+The first time you run the server, Windows may ask:
+"Do you want to allow Node.js to communicate on the network?"
+→ Click "Allow" or "Allow access" — this is required!
+
+If other devices can't connect, check Windows Firewall:
+1. Search "Windows Firewall" → Advanced settings
+2. Inbound Rules → New Rule
+3. Port → TCP → Port 3000 → Allow → Name it "RDA Server"
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+TROUBLESHOOTING
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+"Port already in use":
+  Another program is using port 3000.
+  In server.js change: const PORT = 3000; to const PORT = 3001;
+  Then use port 3001 in your browser.
+
+"Other devices can't connect":
+  • Make sure all devices are on the same WiFi
+  • Check Windows Firewall (see above)
+  • Try disabling Windows Firewall temporarily to test
+
+"Data is gone after restart":
+  • Check that data/rda_database.json exists
+  • If missing, restore from data/backups/
+
+"Server crashed":
+  • Check the server window for error messages
+  • Simply restart by running START.bat again
+  • Your data is safe in data/rda_database.json
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+UPGRADING TO A REAL WEB SERVER (FUTURE)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+When you're ready to go online (accessible outside the shop):
+1. Rent a VPS (Virtual Private Server) — ~$5-10/month
+   Options: DigitalOcean, Linode, Vultr, or local Philippine hosts
+2. Upload this entire rda-server folder to the VPS
+3. Run: npm install && node server.js
+4. Set up a domain name pointing to your VPS IP
+5. (Optional) Add HTTPS with Let's Encrypt (free)
+
+Your data/rda_database.json transfers directly — no migration needed.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+SUPPORT
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+RDA Mobile Phone Service Center
+Unit 26 Emilia Mindanao Souvenir Center, CM Recto St., Davao City
+Contact: 09679049992 / 3084019
+Email: operation@rdamobileservices.com
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━

@@ -1,0 +1,13 @@
+{
+  "name": "rda-service-center",
+  "version": "1.0.0",
+  "description": "RDA Mobile Phone Service Center Management System",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "dependencies": {}
+}
