@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>RDA — Data Recovery</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'Segoe UI',Arial,sans-serif;background:#0F172A;color:#fff;padding:20px;min-height:100vh}
+h1{color:#60A5FA;font-size:22px;margin-bottom:4px}
+.sub{color:#94A3B8;font-size:13px;margin-bottom:20px}
+.card{background:#1E293B;border:1px solid #334155;border-radius:12px;padding:16px;margin-bottom:12px}
+.row{display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap}
+.info{font-size:12px;color:#94A3B8;margin-top:4px}
+.name{font-family:monospace;font-size:12px;color:#60A5FA}
+.badge{padding:3px 10px;border-radius:8px;font-size:11px;font-weight:700}
+.good{background:#064E3B;color:#4ADE80}
+.bad{background:#450A0A;color:#F87171}
+.btn{padding:8px 16px;border:none;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer;transition:opacity .1s}
+.btn:active{opacity:.7}
+.btn-blue{background:#1D4ED8;color:#fff}
+.btn-green{background:#065F46;color:#fff;font-size:14px;padding:10px 20px}
+.btn-red{background:#DC2626;color:#fff}
+.status{padding:16px;border-radius:10px;margin-bottom:16px;font-size:13px;font-weight:700}
+.status.ok{background:#064E3B;border:1px solid #065F46;color:#4ADE80}
+.status.err{background:#450A0A;border:1px solid #7F1D1D;color:#F87171}
+.status.info{background:#1E3A5F;border:1px solid #1E40AF;color:#60A5FA}
+.loading{color:#94A3B8;font-style:italic;padding:20px;text-align:center}
+</style>
+</head>
+<body>
+<h1>🔧 RDA Data Recovery</h1>
+<div class="sub">Restore your database from a server backup</div>
+
+<div id="status-box" class="status info">⏳ Checking server status...</div>
+
+<div id="backup-list"><div class="loading">Loading backups...</div></div>
+
+<script>
+async function init() {
+  // Check current status
+  try {
+    const r = await fetch('/api/status');
+    const d = await r.json();
+    const box = document.getElementById('status-box');
+    if (d.jobs === 0) {
+      box.className = 'status err';
+      box.innerHTML = `❌ Current database is EMPTY — Jobs: ${d.jobs} | Size: ${d.dbSize}<br><small>Select a backup below to restore your data</small>`;
+    } else {
+      box.className = 'status ok';
+      box.innerHTML = `✅ Current database OK — Jobs: ${d.jobs} | Customers: ${d.customers} | Size: ${d.dbSize}<br><small>Last saved: ${d.lastSaved}</small>`;
+    }
+  } catch(e) {
+    document.getElementById('status-box').innerHTML = '❌ Cannot connect to server';
+  }
+
+  // Load backups
+  try {
+    const r = await fetch('/api/backups');
+    const backups = await r.json();
+    const container = document.getElementById('backup-list');
+
+    if (!backups.length) {
+      container.innerHTML = '<div class="card">No backups found.</div>';
+      return;
+    }
+
+    container.innerHTML = `
+      <div class="card" style="border-color:#1E40AF;background:#1E3A5F">
+        <div style="font-size:13px;font-weight:700;color:#60A5FA;margin-bottom:8px">
+          📦 ${backups.length} Backups Found — Newest First
+        </div>
+        <div style="font-size:11px;color:#94A3B8">Click RESTORE on the latest backup that shows your jobs count (should be ~2400+)</div>
+      </div>
+      ${backups.map((b,i) => `
+      <div class="card" style="${b.jobs > 100 ? 'border-color:#065F46' : ''}">
+        <div class="row">
+          <div>
+            <div class="name">${b.name}</div>
+            <div class="info">Size: ${b.size} &nbsp;|&nbsp; Saved: ${b.lastSaved}</div>
+            <div style="margin-top:6px;display:flex;gap:8px;flex-wrap:wrap">
+              <span class="badge ${b.jobs > 0 ? 'good' : 'bad'}">Jobs: ${b.jobs}</span>
+              <span class="badge ${b.customers > 0 ? 'good' : 'bad'}">Customers: ${b.customers}</span>
+              <span class="badge ${b.sales > 0 ? 'good' : 'bad'}">Sales: ${b.sales}</span>
+            </div>
+          </div>
+          <div style="display:flex;gap:8px;flex-shrink:0">
+            <button class="btn btn-blue" onclick="downloadBackup('${b.name}')">⬇️ Download</button>
+            ${b.jobs > 0 ? `<button class="btn btn-green" onclick="restoreBackup('${b.name}',${b.jobs})">✅ RESTORE</button>` : ''}
+          </div>
+        </div>
+      </div>`).join('')}`;
+  } catch(e) {
+    document.getElementById('backup-list').innerHTML = `<div class="card">Error loading backups: ${e.message}</div>`;
+  }
+}
+
+async function restoreBackup(name, jobs) {
+  if (!confirm(`RESTORE from backup:\n${name}\n\nThis will replace the current database with ${jobs} jobs.\n\nAre you sure?`)) return;
+  try {
+    const r = await fetch('/api/restore/' + name, { method: 'POST' });
+    const d = await r.json();
+    if (d.ok) {
+      alert(`✅ RESTORED SUCCESSFULLY!\n\nJobs: ${d.jobs}\nCustomers: ${d.customers}\n\nGo back to the main system and refresh.`);
+      init(); // refresh status
+    } else {
+      alert('❌ Restore failed: ' + d.error);
+    }
+  } catch(e) {
+    alert('❌ Error: ' + e.message);
+  }
+}
+
+function downloadBackup(name) {
+  window.open('/api/backup/' + name, '_blank');
+}
+
+init();
+</script>
+</body>
+</html>
