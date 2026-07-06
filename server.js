@@ -111,7 +111,19 @@ const server = http.createServer((req, res) => {
     return;
   }
 
-  // ── API: GET /api/backups ── list all backups
+  // ── API: GET /api/next-jo ── atomic JO number (prevents duplicates)
+  if (req.method === 'GET' && url === '/api/next-jo') {
+    const db = loadDB();
+    db._joCounter = (db._joCounter || 0) + 1;
+    const joNum = 'JO-' + String(db._joCounter).padStart(4, '0');
+    saveDB(db);
+    res.writeHead(200, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify({ joNumber: joNum, counter: db._joCounter }));
+    console.log('[JO] Generated:', joNum);
+    return;
+  }
+
+
   if (req.method === 'GET' && url === '/api/backups') {
     if (!fs.existsSync(BACKUP_DIR)) { res.writeHead(200, {'Content-Type':'application/json'}); res.end('[]'); return; }
     const files = fs.readdirSync(BACKUP_DIR)
