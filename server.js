@@ -150,7 +150,8 @@ const server = http.createServer((req, res) => {
     return;
   }
 
-  // ── API: GET /api/next-jo ── atomic JO number (prevents duplicates)
+  // ── API: GET /api/next-jo ── returns next available JO number WITHOUT consuming it
+  // The counter is only advanced when the job is actually saved via /api/save
   if (req.method === 'GET' && url === '/api/next-jo') {
     const db = loadDB();
     // Find highest existing JO number from jobs array
@@ -162,12 +163,12 @@ const server = http.createServer((req, res) => {
         if (!isNaN(n) && n > maxNum) maxNum = n;
       }
     });
-    db._joCounter = maxNum + 1;
-    const joNum = 'JO-' + String(db._joCounter).padStart(4, '0');
-    saveDB(db);
+    // Return next number but do NOT save/commit — counter advances only on real save
+    const nextNum = maxNum + 1;
+    const joNum = 'JO-' + String(nextNum).padStart(4, '0');
     res.writeHead(200, { 'Content-Type': 'application/json' });
-    res.end(JSON.stringify({ joNumber: joNum, counter: db._joCounter }));
-    console.log('[JO] Generated:', joNum, '(max was:', maxNum, ')');
+    res.end(JSON.stringify({ joNumber: joNum, counter: nextNum }));
+    console.log('[JO] Preview next JO:', joNum, '(max existing:', maxNum, ') — NOT committed');
     return;
   }
 
