@@ -95,15 +95,54 @@ const server = http.createServer((req, res) => {
     req.on('data', chunk => { body += chunk; });
     req.on('end', () => {
       try {
-        const data = JSON.parse(body);
-        data._meta = data._meta || {};
-        data._meta.lastSaved = new Date().toISOString();
-        data._meta.savedFrom = req.socket.remoteAddress;
-        const ok = saveDB(data);
+        const incoming = JSON.parse(body);
+        const existing = loadDB();
+
+        // ── SMART MERGE: take the UNION of arrays ──
+        // For each array field, merge by unique ID — incoming wins for same ID
+        function mergeById(existArr, incomingArr, idField) {
+          if (!existArr || !existArr.length) return incomingArr || [];
+          if (!incomingArr || !incomingArr.length) return existArr || [];
+          const map = new Map();
+          // existing first
+          existArr.forEach(item => { if (item && item[idField]) map.set(item[idField], item); });
+          // incoming overwrites (newer version of same record)
+          incomingArr.forEach(item => { if (item && item[idField]) map.set(item[idField], item); });
+          return Array.from(map.values());
+        }
+
+        // Merge all array fields
+        const merged = { ...existing, ...incoming };
+        merged.jobs         = mergeById(existing.jobs,         incoming.jobs,         'id');
+        merged.customers    = mergeById(existing.customers,    incoming.customers,    'id');
+        merged.sales        = mergeById(existing.sales,        incoming.sales,        'orNumber');
+        merged.inventory    = mergeById(existing.inventory,    incoming.inventory,    'code');
+        merged.partRequests = mergeById(existing.partRequests, incoming.partRequests, 'id');
+        merged.purchaseOrders = mergeById(existing.purchaseOrders, incoming.purchaseOrders, 'id');
+        merged.employees    = mergeById(existing.employees,    incoming.employees,    'id');
+        merged.quotations   = mergeById(existing.quotations,   incoming.quotations,   'id');
+        merged.cashierQueue = mergeById(existing.cashierQueue, incoming.cashierQueue, 'id');
+        merged.imeiBypassRequests = mergeById(existing.imeiBypassRequests, incoming.imeiBypassRequests, 'id');
+        merged.notifications = mergeById(existing.notifications, incoming.notifications, 'id');
+        merged.dealers      = mergeById(existing.dealers,      incoming.dealers,      'id');
+        merged.toolInventory = mergeById(existing.toolInventory, incoming.toolInventory, 'id');
+        merged.toolRequests = mergeById(existing.toolRequests, incoming.toolRequests, 'id');
+
+        // For non-array fields, incoming always wins (settings, counters, etc)
+        merged._meta = merged._meta || {};
+        merged._meta.lastSaved = new Date().toISOString();
+        merged._meta.savedFrom = req.socket.remoteAddress;
+
+        // Keep highest orCounter to prevent OR# reuse
+        merged.orCounter = Math.max(existing.orCounter || 0, incoming.orCounter || 0);
+        merged.poCounter = Math.max(existing.poCounter || 0, incoming.poCounter || 0);
+
+        const ok = saveDB(merged);
         res.writeHead(ok ? 200 : 500, { 'Content-Type': 'application/json' });
-        res.end(JSON.stringify({ ok, savedAt: data._meta.lastSaved }));
-        if (ok) console.log(`[Save] ${Object.keys(data).length} keys from ${data._meta.savedFrom}`);
+        res.end(JSON.stringify({ ok, savedAt: merged._meta.lastSaved, jobs: merged.jobs.length }));
+        if (ok) console.log(`[Save] Merged — jobs:${merged.jobs.length} sales:${(merged.sales||[]).length} from ${merged._meta.savedFrom}`);
       } catch (e) {
+        console.error('[Save] Error:', e.message);
         res.writeHead(400, { 'Content-Type': 'application/json' });
         res.end(JSON.stringify({ ok: false, error: e.message }));
       }
