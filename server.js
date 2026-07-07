@@ -128,6 +128,30 @@ const server = http.createServer((req, res) => {
         merged.toolInventory = mergeById(existing.toolInventory, incoming.toolInventory, 'id');
         merged.toolRequests = mergeById(existing.toolRequests, incoming.toolRequests, 'id');
 
+        // ── Protect masterList: use incoming ONLY if it has MORE brands or models ──
+        // This prevents a stale CSR client overwriting freshly added brands from backroom/admin
+        const exMaster = existing.masterList || {};
+        const inMaster = incoming.masterList || {};
+        const exBrandCount = (exMaster.brands || []).reduce((t,b)=>t+1+(b.models||[]).length, 0);
+        const inBrandCount = (inMaster.brands || []).reduce((t,b)=>t+1+(b.models||[]).length, 0);
+        if (inBrandCount >= exBrandCount) {
+          merged.masterList = inMaster; // incoming has same or more data — use it
+        } else {
+          merged.masterList = exMaster; // existing has more brands/models — keep it
+          console.log(`[Save] Kept existing masterList (${exBrandCount} vs ${inBrandCount} incoming)`);
+        }
+
+        // ── Protect dailyReports: merge by date so a closed report is never lost ──
+        function mergeDailyReports(existArr, incomingArr) {
+          if (!existArr || !existArr.length) return incomingArr || [];
+          if (!incomingArr || !incomingArr.length) return existArr || [];
+          const map = new Map();
+          existArr.forEach(r => { if (r && r.date) map.set(r.date, r); });
+          incomingArr.forEach(r => { if (r && r.date) map.set(r.date, r); }); // incoming wins same date
+          return Array.from(map.values()).sort((a,b)=>a.date<b.date?-1:1);
+        }
+        merged.dailyReports = mergeDailyReports(existing.dailyReports, incoming.dailyReports);
+
         // For non-array fields, incoming always wins (settings, counters, etc)
         merged._meta = merged._meta || {};
         merged._meta.lastSaved = new Date().toISOString();
