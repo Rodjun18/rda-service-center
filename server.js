@@ -128,6 +128,7 @@ const server = http.createServer((req, res) => {
         merged.toolInventory = mergeById(existing.toolInventory, incoming.toolInventory, 'id');
         merged.toolRequests = mergeById(existing.toolRequests, incoming.toolRequests, 'id');
         merged.stickyNotes  = mergeById(existing.stickyNotes||[], incoming.stickyNotes||[], 'id');
+        merged.disciplinaryRecords = mergeById(existing.disciplinaryRecords||[], incoming.disciplinaryRecords||[], 'id');
 
         // ── Protect masterList: use incoming ONLY if it has MORE brands or models ──
         // This prevents a stale CSR client overwriting freshly added brands from backroom/admin
