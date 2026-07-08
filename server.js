@@ -98,16 +98,48 @@ const server = http.createServer((req, res) => {
         const incoming = JSON.parse(body);
         const existing = loadDB();
 
-        // ── SMART MERGE: take the UNION of arrays ──
-        // For each array field, merge by unique ID — incoming wins for same ID
+        // ── SMART MERGE: take the UNION of arrays, most-recently-updated record wins ──
         function mergeById(existArr, incomingArr, idField) {
           if (!existArr || !existArr.length) return incomingArr || [];
           if (!incomingArr || !incomingArr.length) return existArr || [];
+
+          // Parse any date string to a comparable timestamp
+          const toTS = (str) => {
+            if (!str) return 0;
+            const d = new Date(str);
+            return isNaN(d) ? 0 : d.getTime();
+          };
+
+          // Get the best timestamp from a record (updatedAt > closedAt > date)
+          const getTS = (item) => {
+            return toTS(item.updatedAt) || toTS(item.closedAt) || toTS(item.fulfillDate) ||
+                   toTS(item.issuedAt)  || toTS(item.createdAt) || toTS(item.date) || 0;
+          };
+
           const map = new Map();
-          // existing first
-          existArr.forEach(item => { if (item && item[idField]) map.set(item[idField], item); });
-          // incoming overwrites (newer version of same record)
-          incomingArr.forEach(item => { if (item && item[idField]) map.set(item[idField], item); });
+          // Load existing records first
+          existArr.forEach(item => {
+            if (item && item[idField]) map.set(item[idField], item);
+          });
+          // Incoming: only overwrite if incoming record is NEWER or same age
+          incomingArr.forEach(item => {
+            if (!item || !item[idField]) return;
+            const existing = map.get(item[idField]);
+            if (!existing) {
+              // New record not in existing — always add
+              map.set(item[idField], item);
+            } else {
+              const existTS = getTS(existing);
+              const incomTS = getTS(item);
+              if (incomTS >= existTS) {
+                // Incoming is same age or newer — incoming wins
+                map.set(item[idField], item);
+              } else {
+                // Existing is newer — keep existing, reject stale incoming
+                console.log(`[Merge] Kept newer existing ${idField}=${item[idField]} (exist:${existTS} > incoming:${incomTS})`);
+              }
+            }
+          });
           return Array.from(map.values());
         }
 
