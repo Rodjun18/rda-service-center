@@ -89,6 +89,33 @@ const server = http.createServer((req, res) => {
     return;
   }
 
+// ── Save queue — serialize concurrent saves so no two run at the same time ──
+let _saveQueue = [];
+let _saveProcessing = false;
+
+function processSaveQueue() {
+  if (_saveProcessing || _saveQueue.length === 0) return;
+  _saveProcessing = true;
+  const { incoming, res, tabId } = _saveQueue.shift();
+
+  try {
+    const existing = loadDB();
+    const merged = doMerge(existing, incoming);
+    saveDB(merged);
+    res.writeHead(200, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify({ ok: true, tab: tabId, queued: _saveQueue.length }));
+    console.log(`[Save] OK tab=${tabId || '?'} jobs=${merged.jobs?.length} sales=${merged.sales?.length} queue=${_saveQueue.length}`);
+  } catch(e) {
+    console.error('[Save] Error:', e.message);
+    res.writeHead(500, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify({ ok: false, error: e.message }));
+  }
+
+  _saveProcessing = false;
+  // Process next in queue
+  if (_saveQueue.length > 0) setImmediate(processSaveQueue);
+}
+
   // ── API: POST /api/save ──
   if (req.method === 'POST' && url === '/api/save') {
     let body = '';
@@ -96,120 +123,91 @@ const server = http.createServer((req, res) => {
     req.on('end', () => {
       try {
         const incoming = JSON.parse(body);
-        const existing = loadDB();
+        const tabId = incoming._tabId || 'unknown';
+        // Queue this save — prevents concurrent writes corrupting the database
+        _saveQueue.push({ incoming, res, tabId });
+        console.log(`[Queue] tab=${tabId} queued (${_saveQueue.length} in queue)`);
+        processSaveQueue();
+      } catch(e) {
+        res.writeHead(400, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ ok: false, error: 'Invalid JSON' }));
+      }
+    });
+    return;
+  }
 
+function doMerge(existing, incoming) {
         // ── SMART MERGE: take the UNION of arrays, most-recently-updated record wins ──
         function mergeById(existArr, incomingArr, idField) {
           if (!existArr || !existArr.length) return incomingArr || [];
           if (!incomingArr || !incomingArr.length) return existArr || [];
-
-          // Parse any date string to a comparable timestamp
-          const toTS = (str) => {
-            if (!str) return 0;
-            const d = new Date(str);
-            return isNaN(d) ? 0 : d.getTime();
-          };
-
-          // Get the best timestamp from a record (updatedAt > closedAt > date)
-          const getTS = (item) => {
-            return toTS(item.updatedAt) || toTS(item.closedAt) || toTS(item.fulfillDate) ||
-                   toTS(item.issuedAt)  || toTS(item.createdAt) || toTS(item.date) || 0;
-          };
-
+          const toTS = (str) => { if (!str) return 0; const d = new Date(str); return isNaN(d) ? 0 : d.getTime(); };
+          const getTS = (item) => toTS(item.updatedAt)||toTS(item.closedAt)||toTS(item.fulfillDate)||toTS(item.issuedAt)||toTS(item.createdAt)||toTS(item.date)||0;
           const map = new Map();
-          // Load existing records first
-          existArr.forEach(item => {
-            if (item && item[idField]) map.set(item[idField], item);
-          });
-          // Incoming: only overwrite if incoming record is NEWER or same age
+          existArr.forEach(item => { if (item && item[idField]) map.set(item[idField], item); });
           incomingArr.forEach(item => {
             if (!item || !item[idField]) return;
-            const existing = map.get(item[idField]);
-            if (!existing) {
-              // New record not in existing — always add
-              map.set(item[idField], item);
-            } else {
-              const existTS = getTS(existing);
-              const incomTS = getTS(item);
-              if (incomTS >= existTS) {
-                // Incoming is same age or newer — incoming wins
-                map.set(item[idField], item);
-              } else {
-                // Existing is newer — keep existing, reject stale incoming
-                console.log(`[Merge] Kept newer existing ${idField}=${item[idField]} (exist:${existTS} > incoming:${incomTS})`);
-              }
+            const ex = map.get(item[idField]);
+            if (!ex) { map.set(item[idField], item); }
+            else {
+              const existTS = getTS(ex), incomTS = getTS(item);
+              if (incomTS >= existTS) { map.set(item[idField], item); }
+              else { console.log(`[Merge] Kept newer existing ${idField}=${item[idField]} (exist:${existTS} > incoming:${incomTS})`); }
             }
           });
           return Array.from(map.values());
         }
 
-        // Merge all array fields
         const merged = { ...existing, ...incoming };
-        merged.jobs         = mergeById(existing.jobs,         incoming.jobs,         'id');
-        merged.customers    = mergeById(existing.customers,    incoming.customers,    'id');
-        merged.sales        = mergeById(existing.sales,        incoming.sales,        'orNumber');
-        merged.inventory    = mergeById(existing.inventory,    incoming.inventory,    'code');
-        merged.partRequests = mergeById(existing.partRequests, incoming.partRequests, 'id');
-        merged.purchaseOrders = mergeById(existing.purchaseOrders, incoming.purchaseOrders, 'id');
-        merged.employees    = mergeById(existing.employees,    incoming.employees,    'id');
-        merged.quotations   = mergeById(existing.quotations,   incoming.quotations,   'id');
-        merged.cashierQueue = mergeById(existing.cashierQueue, incoming.cashierQueue, 'id');
-        merged.imeiBypassRequests = mergeById(existing.imeiBypassRequests, incoming.imeiBypassRequests, 'id');
-        merged.notifications = mergeById(existing.notifications, incoming.notifications, 'id');
-        merged.dealers      = mergeById(existing.dealers,      incoming.dealers,      'id');
-        merged.toolInventory = mergeById(existing.toolInventory, incoming.toolInventory, 'id');
-        merged.toolRequests = mergeById(existing.toolRequests, incoming.toolRequests, 'id');
-        merged.stickyNotes  = mergeById(existing.stickyNotes||[], incoming.stickyNotes||[], 'id');
+        merged.jobs             = mergeById(existing.jobs,             incoming.jobs,             'id');
+        merged.customers        = mergeById(existing.customers,        incoming.customers,        'id');
+        merged.sales            = mergeById(existing.sales,            incoming.sales,            'orNumber');
+        merged.inventory        = mergeById(existing.inventory,        incoming.inventory,        'code');
+        merged.partRequests     = mergeById(existing.partRequests,     incoming.partRequests,     'id');
+        merged.purchaseOrders   = mergeById(existing.purchaseOrders,   incoming.purchaseOrders,   'id');
+        merged.employees        = mergeById(existing.employees,        incoming.employees,        'id');
+        merged.quotations       = mergeById(existing.quotations,       incoming.quotations,       'id');
+        merged.cashierQueue     = mergeById(existing.cashierQueue,     incoming.cashierQueue,     'id');
+        merged.imeiBypassRequests = mergeById(existing.imeiBypassRequests||[], incoming.imeiBypassRequests||[], 'id');
+        merged.notifications    = mergeById(existing.notifications,    incoming.notifications,    'id');
+        merged.dealers          = mergeById(existing.dealers,          incoming.dealers,          'id');
+        merged.toolInventory    = mergeById(existing.toolInventory,    incoming.toolInventory,    'id');
+        merged.toolRequests     = mergeById(existing.toolRequests,     incoming.toolRequests,     'id');
+        merged.stickyNotes      = mergeById(existing.stickyNotes||[], incoming.stickyNotes||[], 'id');
         merged.disciplinaryRecords = mergeById(existing.disciplinaryRecords||[], incoming.disciplinaryRecords||[], 'id');
 
-        // ── Protect statuses: keep whichever array has more entries (custom statuses must survive) ──
-        const exStatuses = existing.statuses || [];
-        const inStatuses = incoming.statuses || [];
+        // Statuses — keep whichever has more entries
+        const exStatuses = existing.statuses || [], inStatuses = incoming.statuses || [];
         merged.statuses = inStatuses.length >= exStatuses.length ? inStatuses : exStatuses;
-        // This prevents a stale CSR client overwriting freshly added brands from backroom/admin
-        const exMaster = existing.masterList || {};
-        const inMaster = incoming.masterList || {};
-        const exBrandCount = (exMaster.brands || []).reduce((t,b)=>t+1+(b.models||[]).length, 0);
-        const inBrandCount = (inMaster.brands || []).reduce((t,b)=>t+1+(b.models||[]).length, 0);
-        if (inBrandCount >= exBrandCount) {
-          merged.masterList = inMaster; // incoming has same or more data — use it
-        } else {
-          merged.masterList = exMaster; // existing has more brands/models — keep it
-          console.log(`[Save] Kept existing masterList (${exBrandCount} vs ${inBrandCount} incoming)`);
-        }
 
-        // ── Protect dailyReports: merge by date so a closed report is never lost ──
+        // masterList — keep whichever has more brands/models
+        const exMaster = existing.masterList || {}, inMaster = incoming.masterList || {};
+        const exBC = (exMaster.brands||[]).reduce((t,b)=>t+1+(b.models||[]).length, 0);
+        const inBC = (inMaster.brands||[]).reduce((t,b)=>t+1+(b.models||[]).length, 0);
+        merged.masterList = inBC >= exBC ? inMaster : exMaster;
+        if (inBC < exBC) console.log(`[Merge] Kept existing masterList (${exBC} vs ${inBC})`);
+
+        // dailyReports — merge by date, neither wins over the other
         function mergeDailyReports(existArr, incomingArr) {
-          if (!existArr || !existArr.length) return incomingArr || [];
-          if (!incomingArr || !incomingArr.length) return existArr || [];
+          if (!existArr||!existArr.length) return incomingArr||[];
+          if (!incomingArr||!incomingArr.length) return existArr||[];
           const map = new Map();
-          existArr.forEach(r => { if (r && r.date) map.set(r.date, r); });
-          incomingArr.forEach(r => { if (r && r.date) map.set(r.date, r); }); // incoming wins same date
+          existArr.forEach(r => { if (r&&r.date) map.set(r.date, r); });
+          incomingArr.forEach(r => { if (r&&r.date) map.set(r.date, r); });
           return Array.from(map.values()).sort((a,b)=>a.date<b.date?-1:1);
         }
         merged.dailyReports = mergeDailyReports(existing.dailyReports, incoming.dailyReports);
 
-        // For non-array fields, incoming always wins (settings, counters, etc)
+        // Counters — always take the highest
+        merged.orCounter = Math.max(existing.orCounter||0, incoming.orCounter||0);
+        merged.poCounter = Math.max(existing.poCounter||0, incoming.poCounter||0);
+
+        // Metadata
         merged._meta = merged._meta || {};
         merged._meta.lastSaved = new Date().toISOString();
-        merged._meta.savedFrom = req.socket.remoteAddress;
 
-        // Keep highest orCounter to prevent OR# reuse
-        merged.orCounter = Math.max(existing.orCounter || 0, incoming.orCounter || 0);
-        merged.poCounter = Math.max(existing.poCounter || 0, incoming.poCounter || 0);
-
-        const ok = saveDB(merged);
-        res.writeHead(ok ? 200 : 500, { 'Content-Type': 'application/json' });
-        res.end(JSON.stringify({ ok, savedAt: merged._meta.lastSaved, jobs: merged.jobs.length }));
-        if (ok) console.log(`[Save] Merged — jobs:${merged.jobs.length} sales:${(merged.sales||[]).length} from ${merged._meta.savedFrom}`);
-      } catch (e) {
-        console.error('[Save] Error:', e.message);
-        res.writeHead(400, { 'Content-Type': 'application/json' });
-        res.end(JSON.stringify({ ok: false, error: e.message }));
-      }
-    });
-    return;
-  }
+        return merged;
+}
 
   // ── API: GET /api/next-jo ── returns next available JO number WITHOUT consuming it
   // The counter is only advanced when the job is actually saved via /api/save
