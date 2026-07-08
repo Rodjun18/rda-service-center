@@ -130,7 +130,10 @@ const server = http.createServer((req, res) => {
         merged.stickyNotes  = mergeById(existing.stickyNotes||[], incoming.stickyNotes||[], 'id');
         merged.disciplinaryRecords = mergeById(existing.disciplinaryRecords||[], incoming.disciplinaryRecords||[], 'id');
 
-        // ── Protect masterList: use incoming ONLY if it has MORE brands or models ──
+        // ── Protect statuses: keep whichever array has more entries (custom statuses must survive) ──
+        const exStatuses = existing.statuses || [];
+        const inStatuses = incoming.statuses || [];
+        merged.statuses = inStatuses.length >= exStatuses.length ? inStatuses : exStatuses;
         // This prevents a stale CSR client overwriting freshly added brands from backroom/admin
         const exMaster = existing.masterList || {};
         const inMaster = incoming.masterList || {};
