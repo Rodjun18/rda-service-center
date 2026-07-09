@@ -175,6 +175,7 @@ function doMerge(existing, incoming) {
         merged.toolRequests     = mergeById(existing.toolRequests,     incoming.toolRequests,     'id');
         merged.stickyNotes      = mergeById(existing.stickyNotes||[], incoming.stickyNotes||[], 'id');
         merged.disciplinaryRecords = mergeById(existing.disciplinaryRecords||[], incoming.disciplinaryRecords||[], 'id');
+        merged.cashierSessions  = mergeById(existing.cashierSessions||[], incoming.cashierSessions||[], 'id');
 
         // Statuses — keep whichever has more entries
         const exStatuses = existing.statuses || [], inStatuses = incoming.statuses || [];
