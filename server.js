@@ -173,9 +173,22 @@ function doMerge(existing, incoming) {
         merged.dealers          = mergeById(existing.dealers,          incoming.dealers,          'id');
         merged.toolInventory    = mergeById(existing.toolInventory,    incoming.toolInventory,    'id');
         merged.toolRequests     = mergeById(existing.toolRequests,     incoming.toolRequests,     'id');
-        merged.stickyNotes      = mergeById(existing.stickyNotes||[], incoming.stickyNotes||[], 'id');
+        merged.stickyNotes      = incoming.stickyNotes||existing.stickyNotes||[];  // incoming wins (supports deletion)
         merged.disciplinaryRecords = mergeById(existing.disciplinaryRecords||[], incoming.disciplinaryRecords||[], 'id');
         merged.cashierSessions  = mergeById(existing.cashierSessions||[], incoming.cashierSessions||[], 'id');
+
+        // chatMessages — use whichever side has more messages (append-only)
+        const exChat = existing.chatMessages||[], inChat = incoming.chatMessages||[];
+        if (inChat.length >= exChat.length) {
+          merged.chatMessages = inChat;
+        } else {
+          // Merge: keep all existing plus any new ones from incoming
+          const chatMap = new Map(exChat.map(m=>[m.id, m]));
+          inChat.forEach(m=>{ if(!chatMap.has(m.id)) chatMap.set(m.id, m); });
+          merged.chatMessages = Array.from(chatMap.values())
+            .sort((a,b)=>(a.timestamp||'').localeCompare(b.timestamp||''))
+            .slice(-500); // keep last 500
+        }
 
         // Statuses — keep whichever has more entries
         const exStatuses = existing.statuses || [], inStatuses = incoming.statuses || [];
