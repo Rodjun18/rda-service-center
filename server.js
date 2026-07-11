@@ -165,7 +165,7 @@ function doMerge(existing, incoming) {
         merged.inventory        = mergeById(existing.inventory,        incoming.inventory,        'code');
         merged.partRequests     = mergeById(existing.partRequests,     incoming.partRequests,     'id');
         merged.purchaseOrders   = mergeById(existing.purchaseOrders,   incoming.purchaseOrders,   'id');
-        merged.employees        = mergeById(existing.employees,        incoming.employees,        'id');
+        merged.employees        = mergeById(existing.employees,        incoming.employees,        'empId');
         merged.quotations       = mergeById(existing.quotations,       incoming.quotations,       'id');
         merged.cashierQueue     = mergeById(existing.cashierQueue,     incoming.cashierQueue,     'id');
         merged.imeiBypassRequests = mergeById(existing.imeiBypassRequests||[], incoming.imeiBypassRequests||[], 'id');
